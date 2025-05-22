@@ -1,0 +1,7 @@
+.gcloudignore
+venv/
+__pycache__/
+*.pyc
+.git/
+.vscode/
+# Add any other local files or folders you don't want to deploy

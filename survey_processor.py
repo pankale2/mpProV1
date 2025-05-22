@@ -1,0 +1,250 @@
+# survey_processor.py
+import pandas as pd
+from datetime import datetime
+import os
+# openpyxl is used by pandas for writing .xlsx files, ensure it's in requirements.txt
+
+def read_rid_file_from_stream(file_stream):
+    """Reads the RID lookup CSV file from a file stream."""
+    df = pd.read_csv(file_stream)
+    df.columns = df.columns.str.strip().str.lower()
+    return df
+
+def read_metrics_file_from_stream(file_stream):
+    """Reads the Marketplace Metrics Excel file from a file stream."""
+    df = pd.read_excel(
+        file_stream,
+        sheet_name='Marketplace Metrics by PID',
+        skiprows=5
+    )
+    df.columns = df.columns.str.strip().str.lower()
+    if 'pid' in df.columns:
+        df['pid'] = df['pid'].astype(str).str.strip()
+    return df
+
+def add_pivot_and_format(writer, df_merged):
+    """
+    Adds a pivot table sheet to the Excel workbook and applies basic formatting.
+    This function is adapted from the original MPpro.py.
+    """
+    workbook = writer.book
+    
+    # --- Combined Data Sheet Formatting (from original) ---
+    ws_combined = writer.sheets.get('Combined Data') # Get the sheet by name
+    if ws_combined:
+        ws_combined.auto_filter.ref = ws_combined.dimensions
+        ws_combined.freeze_panes = ws_combined['A2']
+
+    # --- Create Pivot Table ---
+    if 'supplier_bu' not in df_merged.columns or 'Observation' not in df_merged.columns:
+        print("Warning: 'supplier_bu' or 'Observation' column not found. Skipping pivot table.")
+        return
+
+    try:
+        pivot = (
+            df_merged.groupby(['supplier_bu', 'Observation'])
+            .size()
+            .reset_index(name='Count')
+            .pivot(index='supplier_bu', columns='Observation', values='Count')
+            .fillna(0)
+            .astype(int)
+        )
+
+        if pivot.empty:
+            print("Warning: Pivot table is empty. Skipping advanced formatting and sheet creation.")
+            return
+
+        # Add row totals
+        pivot['Row Total'] = pivot.sum(axis=1)
+
+        # Add column totals
+        col_totals = pivot.sum(axis=0)
+        col_totals.name = 'Column Total'
+        pivot = pd.concat([pivot, pd.DataFrame([col_totals], index=['Column Total'])])
+
+
+        # Sort rows by row total (descending), keep total row at the end
+        if 'Row Total' in pivot.columns and 'Column Total' in pivot.index:
+            # Separate the 'Column Total' row
+            total_row_df = pivot.loc[['Column Total']]
+            pivot_data_rows = pivot.drop('Column Total')
+            
+            # Sort the data rows
+            pivot_data_rows = pivot_data_rows.sort_values(by='Row Total', ascending=False)
+            
+            # Concatenate sorted data rows with the total row
+            pivot = pd.concat([pivot_data_rows, total_row_df])
+
+
+        # Sort columns: "-n/a-" first, then by column total (descending), then Row Total last
+        cols = list(pivot.columns)
+        # Use .get(c, 0) for robustness if a column name is unexpectedly missing from col_totals
+        col_total_values = pivot.loc['Column Total'] if 'Column Total' in pivot.index else pivot.sum(axis=0)
+
+        obs_cols = [c for c in cols if c not in ['Row Total']]
+        sorted_obs_cols = []
+
+        if '-n/a-' in obs_cols:
+            sorted_obs_cols.append('-n/a-')
+            obs_cols_no_na = [c for c in obs_cols if c != '-n/a-']
+        else:
+            obs_cols_no_na = list(obs_cols)
+            
+        # Sort remaining observation columns by their total count
+        obs_cols_sorted = sorted(obs_cols_no_na, key=lambda c: col_total_values.get(c, 0), reverse=True)
+        sorted_obs_cols.extend(obs_cols_sorted)
+
+        if 'Row Total' in cols:
+            sorted_obs_cols.append('Row Total')
+        
+        pivot = pivot[sorted_obs_cols]
+
+        # Write pivot table to new sheet
+        ws_pivot = workbook.create_sheet('Observation Pivot')
+        
+        # Write header (supplier_bu and then pivot columns)
+        header = ['supplier_bu'] + list(pivot.columns)
+        ws_pivot.append(header)
+        
+        # Write data rows
+        for supplier_bu_index, row_data in pivot.iterrows():
+            ws_pivot.append([supplier_bu_index] + list(row_data.values))
+
+        # --- Additional Pivots ---
+
+        # Helper: get just the date part from entrydate
+        df_merged['entrydate_only'] = df_merged['entrydate'].astype(str).str.split('T').str[0]
+
+        # 1. Pivot: entrydate_only vs supplier_bu
+        if 'entrydate_only' in df_merged.columns and 'supplier_bu' in df_merged.columns:
+            pivot_entrydate_supplier = (
+                df_merged.groupby(['entrydate_only', 'supplier_bu'])
+                .size()
+                .reset_index(name='Count')
+                .pivot(index='entrydate_only', columns='supplier_bu', values='Count')
+                .fillna(0)
+                .astype(int)
+            )
+            ws_pivot1 = workbook.create_sheet('Pivot EntryDate x Supplier')
+            # Write header
+            ws_pivot1.append(['entrydate'] + list(pivot_entrydate_supplier.columns))
+            # Write data rows
+            for idx, row in pivot_entrydate_supplier.iterrows():
+                ws_pivot1.append([idx] + list(row.values))
+
+        # 2. Pivot: entrydate_only vs Observation
+        if 'entrydate_only' in df_merged.columns and 'Observation' in df_merged.columns:
+            pivot_entrydate_obs = (
+                df_merged.groupby(['entrydate_only', 'Observation'])
+                .size()
+                .reset_index(name='Count')
+                .pivot(index='entrydate_only', columns='Observation', values='Count')
+                .fillna(0)
+                .astype(int)
+            )
+            ws_pivot2 = workbook.create_sheet('Pivot EntryDate x Observation')
+            # Write header
+            ws_pivot2.append(['entrydate'] + list(pivot_entrydate_obs.columns))
+            # Write data rows
+            for idx, row in pivot_entrydate_obs.iterrows():
+                ws_pivot2.append([idx] + list(row.values))
+
+    except Exception as e:
+        print(f"Error creating pivot table: {e}")
+        # Optionally, write a small error message to the sheet if it exists
+        try:
+            ws_error_pivot = workbook.create_sheet('Pivot_Error')
+            ws_error_pivot.append([f"Could not generate pivot table: {e}"])
+        except: # pragma: no cover
+            pass # If sheet creation also fails
+
+def generate_survey_report(
+    rid_file_stream, metrics_file_stream, actual_loi, output_dir,
+    conversion_rate_threshold=10,
+    security_terms_threshold=30,
+    speeder_multiplier=3,
+    high_loi_multiplier=3,
+    negative_recs_rate_threshold=15,
+    process_status_26_only=True
+):
+    """
+    Processes the survey files and generates an Excel report with observations and a pivot table.
+    """
+    if not (3 <= actual_loi <= 100):
+        raise ValueError("Survey Actual LOI must be between 3 and 100.")
+
+    rid_df = read_rid_file_from_stream(rid_file_stream)
+    metrics_df = read_metrics_file_from_stream(metrics_file_stream)
+
+    if 'pid' not in rid_df.columns or 'pid' not in metrics_df.columns:
+        raise ValueError("Critical Error: 'pid' column not found in one or both input files. Please check column headers (e.g., 'PID', 'Pid').")
+    
+    # Ensure 'pid' columns are strings for reliable merging
+    rid_df['pid'] = rid_df['pid'].astype(str).str.strip()
+    metrics_df['pid'] = metrics_df['pid'].astype(str).str.strip()
+
+    merged_df = pd.merge(
+        rid_df,
+        metrics_df,
+        on='pid',
+        how='left',
+        indicator=False
+    )
+
+    # Filter for status=26 if requested
+    if process_status_26_only and 'client_responsestatusid' in merged_df.columns:
+        merged_df = merged_df[merged_df['client_responsestatusid'].astype(str) == '26'].copy()
+
+    # --- Observation Logic (from original MPpro.py) ---
+    # Dates: Convert to datetime objects if they are not already. Assuming standard date formats.
+    # Pandas might auto-convert if excel cells are date formatted. If not, explicit conversion is needed.
+    # For robustness, let's attempt conversion and handle potential errors.
+    try:
+        merged_df["first_entry_date"] = pd.to_datetime(merged_df.get("first_entry_date"), errors='coerce')
+        merged_df["last_entry_date"] = pd.to_datetime(merged_df.get("last_entry_date"), errors='coerce')
+    except Exception: # pragma: no cover
+        # If date columns are not critical for an observation or already handled by .get(), this can be pass
+        # Otherwise, raise an error or log a warning
+        print("Warning: Could not parse date columns 'first_entry_date' or 'last_entry_date'.")
+
+    # Set default value
+    merged_df["Observation"] = "-n/a-"
+
+    # 1. Poor Conversion Rate (<conversion_rate_threshold%)
+    mask_poor_conversion = merged_df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
+    merged_df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
+
+    # 2. New User (bot?) (first_entry_date == last_entry_date and not NaT)
+    mask_new_user = (merged_df["first_entry_date"] == merged_df["last_entry_date"]) & \
+                    (merged_df["first_entry_date"].notna()) & \
+                    (merged_df["last_entry_date"].notna())
+    merged_df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
+
+    # 3. High Security Terms (sum_f_and_g_column / total_surveys_entered > security_terms_threshold%)
+    mask_high_security = (merged_df["total_surveys_entered"] > 0) & \
+                         ((merged_df["sum_f_and_g_column"] / merged_df["total_surveys_entered"]) > (security_terms_threshold / 100.0))
+    merged_df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
+
+    # 4. Speeder (session_loi < actual_loi / speeder_multiplier)
+    mask_speeder = merged_df["session_loi"] < (actual_loi / speeder_multiplier)
+    merged_df.loc[mask_speeder.fillna(False), "Observation"] = "Speeder"
+
+    # 5. High LOI, Distracted (session_loi > actual_loi * high_loi_multiplier)
+    mask_high_loi = merged_df["session_loi"] > (actual_loi * high_loi_multiplier)
+    merged_df.loc[mask_high_loi.fillna(False), "Observation"] = "High LOI, Distracted"
+
+    # 6. High RR% (negative_recs_rate > negative_recs_rate_threshold%)
+    mask_high_rr = merged_df["negative_recs_rate"] > (negative_recs_rate_threshold / 100.0)
+    merged_df.loc[mask_high_rr.fillna(False), "Observation"] = "High RR%"
+
+    # --- Generate Excel File ---
+    os.makedirs(output_dir, exist_ok=True) # Ensure output directory exists
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"survey_report_{timestamp}.xlsx"
+    output_path = os.path.join(output_dir, output_filename)
+
+    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+        merged_df.to_excel(writer, sheet_name='Combined Data', index=False)
+        add_pivot_and_format(writer, merged_df) # Call the pivot table function
+
+    return output_path
