@@ -1,0 +1,396 @@
+/* :root will be light theme by default */
+:root {
+    --primary-color: #5A00A7;
+    --primary-hover-color: #480084;
+    --secondary-color: #E0E0E0; /* Borders, subtle backgrounds */
+    --background-color: #FFFFFF;
+    --card-background-color: #F8F9FA;
+    --text-color: #212529;
+    --text-light-color: #495057; /* For secondary info */
+    --accent-color: #7F00FF; /* Links, focus rings */
+    --success-bg-color: #D4EDDA;
+    --success-text-color: #155724;
+    --error-bg-color: #F8D7DA;
+    --error-text-color: #721C24;
+    --input-bg-color: #FFFFFF; /* input background */
+    --input-border-color: #CED4DA;
+    --input-focus-border-color: #7F00FF;
+    --button-text-color: #FFFFFF;
+    --shadow-color-rgb: 34, 34, 59; /* For box-shadows, e.g. rgba(var(--shadow-color-rgb), 0.08) */
+}
+
+[data-theme="dark"] {
+    --primary-color: #7F00FF; /* Accent purple becomes primary */
+    --primary-hover-color: #6A00D6;
+    --secondary-color: #343A40; /* Dark gray for borders/elements */
+    --background-color: #121212;
+    --card-background-color: #1E1E1E;
+    --text-color: #E0E0E0; /* Light gray text */
+    --text-light-color: #A0A0A0;
+    --accent-color: #9D4EDD; /* Lighter purple for dark mode accents */
+    --success-bg-color: #1A3A24;
+    --success-text-color: #A8D5B5;
+    --error-bg-color: #4A2428;
+    --error-text-color: #F1B0B7;
+    --input-bg-color: #2A2A2A;
+    --input-border-color: #444444;
+    --input-focus-border-color: #9D4EDD;
+    --button-text-color: #FFFFFF;
+    --shadow-color-rgb: 200, 200, 200; /* Lighter shadow for dark mode */
+}
+
+body { 
+    font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
+    margin: 0; 
+    padding: 20px; 
+    background-color: var(--background-color); 
+    color: var(--text-color);
+    line-height: 1.6;
+}
+.container { 
+    max-width: 1600px;
+    margin: 5px auto;
+    background-color: var(--card-background-color); 
+    padding: 15px 15px; 
+    border-radius: 14px; 
+    box-shadow: 0 6px 24px rgba(var(--shadow-color-rgb), 0.08); 
+}
+h1 {
+    color: var(--text-color);
+    text-align: left;
+    margin-bottom: 28px;
+    margin-top: 5px;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+.main-flex-row {
+    display: flex;
+    flex-direction: row;
+    gap: 32px;
+}
+.left-section, .right-section {
+    min-width: 320px;
+    transition: flex 0.3s, max-width 0.3s;
+}
+.left-section {
+    border-right: 1px solid var(--secondary-color);
+    padding-right: 32px;
+    flex: 1 1 0;
+}
+.right-section {
+    padding-left: 10px;
+    flex: 1 1 0;
+    display: block;
+}
+.main-flex-row.adv-hidden .left-section {
+    flex: 1 1 100%;
+    max-width: 100%;
+    border-right: none;
+    padding-right: 0;
+}
+.main-flex-row.adv-hidden .right-section {
+    display: none;
+}
+.form-flex-row {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+.form-group {
+    flex: 1 1 250px;
+    min-width: 220px;
+    margin-bottom: 0; /* Default, can be overridden */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+/* Specific margins for form groups to replace <br> tags */
+.form-group#metrics_file_group, 
+.form-group#survey-loi-group {
+    margin-top: 1.5rem;
+}
+
+/* Compact form-group for right-section to reduce label gap */
+.right-section .form-group {
+    flex: unset;
+    min-width: unset;
+    margin-bottom: 0;
+    padding-left: 0;
+}
+label { 
+    margin-bottom: 6px; 
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 1rem;
+    letter-spacing: 0.1px;
+}
+input[type="file"], 
+input[type="number"] { 
+    width: 100%;
+    padding: 10px 12px; 
+    border: 1px solid var(--input-border-color);
+    border-radius: 6px;
+    box-sizing: border-box;
+    margin-bottom: 0;
+    font-size: 1rem;
+    background: var(--input-bg-color);
+    color: var(--text-color);
+    transition: border-color 0.2s;
+}
+input[type="file"]:focus, 
+input[type="number"]:focus {
+    border-color: var(--input-focus-border-color);
+    outline: none;
+}
+input[type="file"] {
+    cursor: pointer;
+}
+
+/* General button styling (submit and type="button") */
+input[type="submit"], button[type="button"] { 
+    background-color: var(--primary-color);
+    color: var(--button-text-color); 
+    padding: 13px 22px; 
+    border: none; 
+    border-radius: 6px; 
+    cursor: pointer; 
+    font-size: 1.1rem;
+    font-weight: 600;
+    transition: background 0.2s, color 0.2s;
+    margin-top: 10px; /* Default margin-top for buttons */
+    box-shadow: 0 2px 8px rgba(var(--shadow-color-rgb), 0.08);
+}
+input[type="submit"]:hover:enabled, button[type="button"]:hover:enabled { 
+    background-color: var(--accent-color); /* Using accent for hover */
+    color: var(--button-text-color);
+}
+input[type="submit"]:disabled, button[type="button"]:disabled {
+    cursor: not-allowed;
+    background-color: var(--primary-color); /* Keep same as normal for disabled */
+    color: var(--button-text-color);
+    opacity: 0.65; /* Standard disabled opacity */
+}
+
+/* Specific styling for #process-btn */
+#process-btn {
+    font-size: 1.3rem;
+    padding: 18px 30px; /* Adjusted padding for better fit */
+    width: auto; /* Let it size based on content and padding */
+    max-width: 100%; /* Ensure it doesn't overflow */
+    font-weight: bold;
+    letter-spacing: 1px;
+    display: block; /* To allow centering if needed, or to take full width of its container */
+    margin-left: auto; /* Aligns to right if container allows */
+    margin-right: 0;
+}
+/* Container for the process button to control its alignment */
+.process-btn-container {
+    display: flex;
+    justify-content: flex-end; /* Aligns button to the right */
+    margin-top: 10px;
+}
+
+
+/* Specific styling for #toggle-advanced-btn */
+#toggle-advanced-btn {
+    width: 80%;
+    max-width: 350px;
+    font-size: 1.1rem; /* Already defined in generic button, but kept for specificity if needed */
+    margin-top: 24px; /* from original inline style */
+}
+
+
+/* Spinner overlay styles */
+#processing-overlay {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0; top: 0; right: 0; bottom: 0;
+    background: rgba(var(--shadow-color-rgb),0.7); /* Use shadow color with alpha for overlay */
+    align-items: center;
+    justify-content: center;
+}
+#processing-overlay .spinner {
+    border: 6px solid var(--secondary-color);
+    border-top: 6px solid var(--accent-color);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+    margin-bottom: 18px;
+}
+#processing-overlay .processing-text {
+    font-size: 1.2rem;
+    color: var(--primary-color);
+    font-weight: 600;
+    text-wrap: wrap;
+    text-align: center;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg);}
+    100% { transform: rotate(360deg);}
+}
+#advanced-options {
+    margin-top: 8px;
+}
+a {
+    color: var(--accent-color);
+    text-decoration: underline;
+    transition: color 0.2s;
+}
+a:hover {
+    color: var(--primary-hover-color);
+}
+/* Add pointer cursor for checkbox and its label */
+#process_status_26_only,
+label[for="process_status_26_only"],
+#process_status_26_only + span {
+    cursor: pointer;
+}
+.info-icon {
+    display: inline-block;
+    margin-left: 8px;
+    color: var(--accent-color);
+    background: var(--background-color); /* Match page background */
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    text-align: center;
+    font-weight: normal;
+    font-size: 1.1rem;
+    line-height: 22px;
+    cursor: pointer;
+    border: 1px solid var(--accent-color);
+    text-decoration: none;
+    vertical-align: middle;
+    position: relative;
+}
+.info-popup {
+    display: none;
+    position: absolute;
+    left: 30px;
+    top: 0;
+    z-index: 10;
+    background: var(--card-background-color);
+    color: var(--text-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    padding: 18px 22px 18px 22px;
+    min-width: 340px;
+    max-width: 520px;
+    font-size: 0.8rem;
+    box-shadow: 0 4px 16px rgba(var(--shadow-color-rgb),0.12);
+    text-align: left;
+    font-weight: normal;
+}
+.info-popup strong { /* Ensure strong tag inherits text color */
+    color: var(--text-color);
+    font-weight: 600; /* Keep bold */
+}
+.info-popup ul, .info-popup ol {
+    margin-bottom: 0.5em; /* Add some space below lists */
+}
+.info-popup.visible {
+    display: block;
+}
+.info-popup .close-btn {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-size: 1.2em;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+.flash-messages { 
+    list-style: none; 
+    padding: 0; 
+    margin-bottom: 20px;
+}
+.flash-messages li { 
+    padding: 12px 15px; 
+    margin-bottom: 10px; 
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 1rem;
+}
+.flash-messages li.error {
+    background-color: var(--error-bg-color);
+    border-color: var(--error-text-color); /* Using text color for border for stronger emphasis */
+    color: var(--error-text-color);
+}
+.flash-messages li.success {
+    background-color: var(--success-bg-color);
+    border-color: var(--success-text-color); /* Using text color for border */
+    color: var(--success-text-color);
+}
+@media (max-width: 900px) {
+    .container { max-width: 98vw; }
+    .main-flex-row { flex-direction: column; gap: 0; }
+    .left-section, .right-section { min-width: 0; padding: 0; border: none; }
+    #process-btn {
+        width: 100%; /* Full width on smaller screens */
+        margin-left: 0;
+        margin-right: 0;
+        padding: 15px; /* Slightly reduce padding */
+    }
+}
+@media (max-width: 600px) {
+    .info-popup { left: 0; min-width: 220px; max-width: 98vw; font-size: 0.95rem; }
+}
+/* Styling for the label span elements within advanced options to use accent color */
+#advanced-options .form-group label span {
+    color: var(--accent-color);
+}
+/* Styling for the checkbox label span to use accent color */
+label[for="process_status_26_only"] span {
+    color: var(--accent-color);
+}
+
+/* Ensure the info popup's b tag also uses accent color */
+.info-popup b {
+    color: var(--accent-color);
+}
+/* Ensure the info popup's code tag for -n/a- uses success text color */
+.info-popup code {
+    color: var(--success-text-color);
+    font-weight: 600;
+}
+
+/* Theme Toggle Button Styles */
+.theme-toggle-button {
+    padding: 8px 15px;
+    border: 1px solid var(--primary-color);
+    background-color: var(--background-color);
+    color: var(--primary-color);
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s, color 0.2s;
+    /* Ensure it doesn't inherit form button styles like margin-top */
+    margin-top: 0; 
+}
+
+.theme-toggle-button:hover {
+    background-color: var(--primary-color);
+    color: var(--button-text-color);
+}
+
+/* Adjustments for dark theme */
+[data-theme="dark"] .theme-toggle-button {
+    border-color: var(--primary-color); /* primary-color is lighter in dark theme, looks good for border */
+    background-color: var(--background-color); /* page background in dark mode */
+    color: var(--primary-color); /* text color matches border */
+}
+
+[data-theme="dark"] .theme-toggle-button:hover {
+    background-color: var(--primary-color); /* primary-color is lighter in dark theme */
+    color: var(--button-text-color); /* white text, contrasts well */
+}
