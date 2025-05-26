@@ -42,7 +42,7 @@ def index():
     if request.method == 'POST':
         if 'rid_file' not in request.files or 'metrics_file' not in request.files:
             flash('Both RID Lookup (CSV) and Marketplace Metrics (Excel) files are required!', 'error')
-            return render_template('index.html', messages=get_flashed_messages(with_categories=True), top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
+            return render_template('index.html', top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
 
         rid_file_storage = request.files.get('rid_file')
         metrics_file_storage = request.files.get('metrics_file')
@@ -71,7 +71,6 @@ def index():
                     pass # Ignore if reading fails, already flashing error
             return render_template(
                 'index.html',
-                messages=get_flashed_messages(with_categories=True),
                 top_surveyids=top_surveyids_from_rid,
                 top_counts=top_counts_from_rid
             )
@@ -79,7 +78,7 @@ def index():
         # Validate file extensions before saving (and before extensive parsing)
         if not (rid_file_storage and allowed_file(rid_file_storage.filename, ALLOWED_EXTENSIONS_CSV)):
             flash('Invalid RID Lookup file type. Must be a CSV file.', 'error')
-            return render_template('index.html', messages=get_flashed_messages(with_categories=True), top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
+            return render_template('index.html', top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
 
         if not (metrics_file_storage and allowed_file(metrics_file_storage.filename, ALLOWED_EXTENSIONS_XLSX)):
             flash('Invalid Marketplace Metrics file type. Must be an XLSX file.', 'error')
@@ -95,7 +94,7 @@ def index():
                         top_counts_from_rid = list(surveyid_counts.values[:3])
                  except Exception:
                     pass
-            return render_template('index.html', messages=get_flashed_messages(with_categories=True), top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
+            return render_template('index.html', top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
             
         try:
             actual_loi = float(survey_loi_str)
@@ -117,7 +116,6 @@ def index():
                     pass
             return render_template(
                 'index.html',
-                messages=get_flashed_messages(with_categories=True),
                 top_surveyids=top_surveyids_from_rid,
                 top_counts=top_counts_from_rid
             )
@@ -133,7 +131,7 @@ def index():
                 rid_df = pd.read_csv(rid_file_storage.stream)
             except Exception as e:
                 flash(f"Error reading RID Lookup (CSV) file: {str(e)}", 'error')
-                return render_template('index.html', messages=get_flashed_messages(with_categories=True), top_surveyids=[], top_counts=[])
+                return render_template('index.html', top_surveyids=[], top_counts=[])
             rid_file_storage.stream.seek(0) # Reset stream for potential re-reads or survey_processor
 
             if 'surveyid' in rid_df.columns:
@@ -177,7 +175,7 @@ def index():
                 metrics_df = pd.read_excel(xls, sheet_name=sheet_name_to_read, skiprows=6)
             except Exception as e:
                 flash(f"Error reading Marketplace Metrics (Excel) file: {str(e)}", 'error')
-                return render_template('index.html', messages=get_flashed_messages(with_categories=True), top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
+                return render_template('index.html', top_surveyids=top_surveyids_from_rid, top_counts=top_counts_from_rid)
             metrics_file_storage.stream.seek(0) # Reset stream
 
             metrics_pids = set(metrics_df['pid'].unique()) if 'pid' in metrics_df.columns else set()
@@ -203,7 +201,6 @@ def index():
             if validation_failed:
                 return render_template(
                     'index.html',
-                    messages=get_flashed_messages(with_categories=True),
                     top_surveyids=top_surveyids_from_rid,
                     top_counts=top_counts_from_rid
                 )
@@ -246,7 +243,6 @@ def index():
             # top_surveyids_from_rid and top_counts_from_rid might be populated from earlier try block
             return render_template(
                 'index.html',
-                messages=get_flashed_messages(with_categories=True),
                 top_surveyids=top_surveyids_from_rid,
                 top_counts=top_counts_from_rid
             )
@@ -256,7 +252,6 @@ def index():
             # top_surveyids_from_rid and top_counts_from_rid might be populated from earlier try block
             return render_template(
                 'index.html',
-                messages=get_flashed_messages(with_categories=True),
                 top_surveyids=top_surveyids_from_rid,
                 top_counts=top_counts_from_rid
             )
@@ -277,22 +272,31 @@ def index():
             # Output file cleanup is handled by send_file or OS for /tmp
 
     # GET request or if POST processing leads here without sending a file
-    from flask import get_flashed_messages # Ensure it's imported for GET too
-    messages = get_flashed_messages(with_categories=True)
+    # Flashed messages are automatically available to the template context if not consumed
     
     # Handle session pop for 'just_processed'
-    if session.pop('just_processed', None) and not messages: # Avoid clearing messages if there are some from this request
-        # If just_processed was true, but there are no new messages, it means it was a redirect after successful send_file
-        # In this case, we don't want to show old flashed messages from previous failed attempts.
-        # So, we effectively clear them by passing an empty list.
-        # If there *are* messages, it means send_file wasn't reached, and we should show them.
-        pass # messages already contains current flashed messages or is empty
+    if session.pop('just_processed', None):
+        # Messages will be displayed by the template normally.
+        # If the intention was to clear messages specifically on a refresh after processing,
+        # that behavior will change. Now, any flashed messages (like 'Processing complete!')
+        # will be shown on the next render, which is generally desirable.
+        # If truly no messages should be shown after 'just_processed', then main.py should not flash them in the first place
+        # for that specific scenario, or a different mechanism is needed.
+        # For now, the goal is to fix the UnboundLocalError and ensure messages *can* be shown.
+        return render_template('index.html', top_surveyids=[], top_counts=[])
 
+    # For a regular GET request, or if POST failed and redirected to GET,
+    # or if 'just_processed' was not set.
+    # top_surveyids_from_rid and top_counts_from_rid will be empty if it's an initial GET.
+    # If it's after a POST that failed and rendered template directly, they might have values.
+    # However, the standard pattern is POST -> flash -> redirect -> GET for success,
+    # and POST -> flash -> render for errors.
+    # The 'messages' variable is not explicitly passed anymore.
+    # The template will call get_flashed_messages() directly.
     return render_template(
         'index.html',
-        messages=messages,
-        top_surveyids=top_surveyids_from_rid, # Will be empty on initial GET
-        top_counts=top_counts_from_rid      # Will be empty on initial GET
+        top_surveyids=top_surveyids_from_rid, 
+        top_counts=top_counts_from_rid
     )
 
 if __name__ == "__main__":

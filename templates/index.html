@@ -25,7 +25,7 @@
         <div style="text-align: right; margin-bottom: 10px;">
             <button type="button" id="theme-toggle" class="theme-toggle-button">Dark Mode</button>
         </div>
-        {% set show_messages = messages if messages is defined else get_flashed_messages(with_categories=true) %}
+        {% set show_messages = get_flashed_messages(with_categories=true) %}
         {% if show_messages %}
           <ul class="flash-messages">
           {% for category, message in show_messages %}
