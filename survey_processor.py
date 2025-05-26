@@ -110,6 +110,21 @@ def add_pivot_and_format(writer, df_merged):
         for supplier_bu_index, row_data in pivot.iterrows():
             ws_pivot.append([supplier_bu_index] + list(row_data.values))
 
+        # --- Style "-n/a-" column in dark green ---
+        from openpyxl.styles import Font
+        dark_green_font = Font(color="006400")  # Hex for dark green
+
+        # Find the column index for "-n/a-"
+        try:
+            na_col_idx = header.index('-n/a-') + 1  # openpyxl is 1-based
+            for row in ws_pivot.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=ws_pivot.max_row):
+                for cell in row:
+                    cell.font = dark_green_font
+            # Also style the header cell
+            ws_pivot.cell(row=1, column=na_col_idx).font = dark_green_font
+        except ValueError:
+            pass  # "-n/a-" column not present
+
         # --- Additional Pivots ---
 
         # Helper: get just the date part from entrydate
@@ -200,8 +215,8 @@ def generate_survey_report(
     # Pandas might auto-convert if excel cells are date formatted. If not, explicit conversion is needed.
     # For robustness, let's attempt conversion and handle potential errors.
     try:
-        merged_df["first_entry_date"] = pd.to_datetime(merged_df.get("first_entry_date"), errors='coerce')
-        merged_df["last_entry_date"] = pd.to_datetime(merged_df.get("last_entry_date"), errors='coerce')
+        merged_df["first_entry_date_time"] = pd.to_datetime(merged_df.get("first_entry_date_time"), errors='coerce')
+        merged_df["last_entry_date_time"] = pd.to_datetime(merged_df.get("last_entry_date_time"), errors='coerce')
     except Exception: # pragma: no cover
         # If date columns are not critical for an observation or already handled by .get(), this can be pass
         # Otherwise, raise an error or log a warning
@@ -214,10 +229,10 @@ def generate_survey_report(
     mask_poor_conversion = merged_df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
     merged_df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
 
-    # 2. New User (bot?) (first_entry_date == last_entry_date and not NaT)
-    mask_new_user = (merged_df["first_entry_date"] == merged_df["last_entry_date"]) & \
-                    (merged_df["first_entry_date"].notna()) & \
-                    (merged_df["last_entry_date"].notna())
+    # 2. New User (bot?) (first_entry_date_time == last_entry_date_time and not NaT)
+    mask_new_user = (merged_df["first_entry_date_time"] == merged_df["last_entry_date_time"]) & \
+                    (merged_df["first_entry_date_time"].notna()) & \
+                    (merged_df["last_entry_date_time"].notna())
     merged_df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
 
     # 3. High Security Terms (sum_f_and_g_column / total_surveys_entered > security_terms_threshold%)

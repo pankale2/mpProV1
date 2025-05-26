@@ -15,7 +15,7 @@
             line-height: 1.6;
         }
         .container { 
-            max-width: 1100px;
+            max-width: 1600px;
             margin: 5px auto;
             background-color: #fff; 
             padding: 15px 15px; 
@@ -61,7 +61,7 @@
         }
         .form-flex-row {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 15px;
             margin-bottom: 10px;
         }
@@ -72,6 +72,13 @@
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
+        }
+        /* Compact form-group for right-section to reduce label gap */
+        .right-section .form-group {
+            flex: unset;
+            min-width: unset;
+            margin-bottom: 0;
+            padding-left: 0;
         }
         label { 
             margin-bottom: 6px; 
@@ -114,9 +121,114 @@
             margin-top: 10px;
             box-shadow: 0 2px 8px rgba(42,11,87,0.08);
         }
-        input[type="submit"]:hover, button[type="button"]:hover { 
+        input[type="submit"]:hover:enabled, button[type="button"]:hover:enabled { 
             background-color: #cd25f1;
             color: #fff;
+        }
+        input[type="submit"]:disabled, button[type="button"]:disabled {
+            cursor: not-allowed;
+            /* Keep background color unchanged on hover when disabled */
+            background-color: #2a0b57;
+            color: #fff;
+        }
+        /* Spinner overlay styles */
+        #processing-overlay {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0; top: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        #processing-overlay .spinner {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #cd25f1;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 18px;
+        }
+        #processing-overlay .processing-text {
+            font-size: 1.2rem;
+            color: #2a0b57;
+            font-weight: 600;
+            text-wrap: wrap;
+            text-align: center;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+        #advanced-options {
+            margin-top: 8px;
+        }
+        a {
+            color: #cd25f1;
+            text-decoration: underline;
+            transition: color 0.2s;
+        }
+        a:hover {
+            color: #2a0b57;
+        }
+        /* Add pointer cursor for checkbox and its label */
+        #process_status_26_only,
+        label[for="process_status_26_only"],
+        #process_status_26_only + span {
+            cursor: pointer;
+        }
+        .info-icon {
+            display: inline-block;
+            margin-left: 8px;
+            color: #cd25f1;
+            background: #f4f7fa;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            text-align: center;
+            font-weight: normal;
+            font-size: 1.1rem;
+            line-height: 22px;
+            cursor: pointer;
+            border: 1px solid #cd25f1;
+            text-decoration: none;
+            vertical-align: middle;
+            position: relative;
+        }
+        .info-popup {
+            display: none;
+            position: absolute;
+            left: 30px;
+            top: 0;
+            z-index: 10;
+            background: #fff;
+            color: #22223b;
+            border: 1px solid #cd25f1;
+            border-radius: 8px;
+            padding: 18px 22px 18px 22px;
+            min-width: 340px;
+            max-width: 520px;
+            font-size: 0.8rem;
+            box-shadow: 0 4px 16px rgba(34,34,59,0.12);
+            text-align: left;
+            font-weight: normal;
+        }
+        .info-popup.visible {
+            display: block;
+        }
+        .info-popup .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: #cd25f1;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0;
+            line-height: 1;
         }
         .flash-messages { 
             list-style: none; 
@@ -140,27 +252,13 @@
             border-color: #b3eaf7;
             color: #008cba;
         }
-        #advanced-options {
-            margin-top: 8px;
-        }
-        a {
-            color: #cd25f1;
-            text-decoration: underline;
-            transition: color 0.2s;
-        }
-        a:hover {
-            color: #2a0b57;
-        }
-        /* Add pointer cursor for checkbox and its label */
-        #process_status_26_only,
-        label[for="process_status_26_only"],
-        #process_status_26_only + span {
-            cursor: pointer;
-        }
         @media (max-width: 900px) {
             .container { max-width: 98vw; }
             .main-flex-row { flex-direction: column; gap: 0; }
             .left-section, .right-section { min-width: 0; padding: 0; border: none; }
+        }
+        @media (max-width: 600px) {
+            .info-popup { left: 0; min-width: 220px; max-width: 98vw; font-size: 0.95rem; }
         }
     </style>
     <!-- Add Inter font from Google Fonts -->
@@ -168,7 +266,6 @@
   </head>
   <body>
     <div class="container">        
-
         {% set show_messages = messages if messages is defined else get_flashed_messages(with_categories=true) %}
         {% if show_messages %}
           <ul class="flash-messages">
@@ -178,10 +275,43 @@
           </ul>
         {% endif %}
 
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" id="main-form">
           <div class="main-flex-row adv-hidden" id="main-flex-row">
             <div class="left-section">
-              <h1>RID+PID Processor</h1>
+              <h1 style="position:relative;">
+                RID+PID Processor
+                <a href="#" class="info-icon" id="info-icon" tabindex="0" aria-label="Show observation logic info">i</a>
+                <div class="info-popup" id="info-popup">
+                  <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
+                  <strong style="font-weight:600;">Notes:</strong>
+                  <li style="font-weight:600;">Upload the files without making any manual changes, as they are recieved.</li>
+                  <li>The <b style="color: #cd25f1;">Advanced Options</b> button would appear after the files are uploaded.</li>
+                  <li>Review the thresholds in the <b style="color: #cd25f1;">Advanced Options</b>, and update as required.</li>
+                </br>
+                  <strong style="font-weight:600;">Observation Logic Summary</strong>
+                  <ul style="margin-top:8px; margin-bottom:0; padding-left:18px; font-weight: normal;">
+                    <li>
+                      <span style="font-weight:600;">Checks are applied in this order:</span>
+                      <ol style="margin: 6px 0 0 18px; padding-left:0; font-weight: normal;">
+                        <li><span style="font-weight:600;">Poor Conversion Rate:</span> <code>system_conversion_rate</code> is below the threshold.</li>
+                        <li><span style="font-weight:600;">New User (bot?):</span> <code>FIRST_ENTRY_DATE_TIME</code> equals <code>LAST_ENTRY_DATE_TIME</code> and both are not empty.</li>
+                        <li><span style="font-weight:600;">High Security Terms:</span> <code>sum_f_and_g_column / total_surveys_entered</code> exceeds the threshold.</li>
+                        <li><span style="font-weight:600;">Speeder:</span> <code>session_loi</code> is less than <code>actual_loi / speeder_multiplier</code>.</li>
+                        <li><span style="font-weight:600;">High LOI, Distracted:</span> <code>session_loi</code> is greater than <code>actual_loi * high_loi_multiplier</code>.</li>
+                        <li><span style="font-weight:600;">High RR%:</span> <code>negative_recs_rate</code> exceeds the threshold.</li>
+                      </ol>
+                    </li>
+                    <li style="margin-top:8px;">
+                      <span style="font-weight:600;">How Observations Work:</span>
+                      <ul style="margin: 4px 0 0 18px; padding-left:0; font-weight: normal;">
+                        <li>The first check that matches for a row will set/overwrite the <span style="font-weight:600;">Observation</span> value.</li>
+                        <li>If multiple checks match, only the <span style="font-weight:600;">last matching check in the above order</span> will be shown for that row.</li>
+                        <li>If no checks match, <code style="color: #006400; font-weight:600;">-n/a-</code> is assigned for that PID.</li>
+                      </ul>
+                    </li>
+                  </ul>
+                </div>
+              </h1>
               <div class="form-group">
                 <label for="rid_file">RID Lookup File (CSV, recieved via 
                   <a href="https://mail.google.com/" target="_blank">email</a>):
@@ -279,6 +409,13 @@
             <input type="submit" id="process-btn" value="Process Files & Download Report" style="font-size: 1.3rem; padding: 18px 60px; width: 60%; max-width: 500px; font-weight: bold; letter-spacing: 1px;">
           </div>
         </form>
+        <!-- Spinner overlay -->
+        <div id="processing-overlay">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <div class="spinner"></div>
+                <div class="processing-text">Processing... </br>Please wait.</div>
+            </div>
+        </div>
         <script>
           const ridFileInput = document.getElementById('rid_file');
           const metricsFileInput = document.getElementById('metrics_file');
@@ -562,6 +699,61 @@
             // If RID file is already uploaded, re-parse it to ensure all checks are up to date
             if (ridFileInput.files[0]) {
               parseRID(ridFileInput.files[0]);
+            }
+          });
+
+          // Info popup logic
+          (function() {
+            const infoIcon = document.getElementById('info-icon');
+            const infoPopup = document.getElementById('info-popup');
+            const infoClose = document.getElementById('info-popup-close');
+            let popupVisible = false;
+            function showPopup() {
+              infoPopup.classList.add('visible');
+              popupVisible = true;
+            }
+            function hidePopup() {
+              infoPopup.classList.remove('visible');
+              popupVisible = false;
+            }
+            infoIcon.addEventListener('click', function(e) {
+              e.preventDefault();
+              if (!popupVisible) {
+                showPopup();
+              } else {
+                hidePopup();
+              }
+            });
+            infoClose.addEventListener('click', function(e) {
+              e.preventDefault();
+              hidePopup();
+            });
+            // Optional: Hide popup if user clicks outside
+            document.addEventListener('mousedown', function(e) {
+              if (popupVisible && !infoPopup.contains(e.target) && e.target !== infoIcon) {
+                hidePopup();
+              }
+            });
+          })();
+
+          // Show spinner overlay on form submit if process button is enabled
+          document.getElementById('main-form').addEventListener('submit', function(e) {
+            const processBtn = document.getElementById('process-btn');
+            if (!processBtn.disabled) {
+              document.getElementById('processing-overlay').style.display = 'flex';
+            }
+          });
+
+          // Hide spinner overlay when file download starts (for modern browsers)
+          window.addEventListener('pageshow', function() {
+            // Hide spinner if user returns to this page (e.g., after download or refresh)
+            document.getElementById('processing-overlay').style.display = 'none';
+          });
+
+          // Also hide spinner after navigation (for browsers that support 'visibilitychange')
+          document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'visible') {
+              document.getElementById('processing-overlay').style.display = 'none';
             }
           });
         </script>
