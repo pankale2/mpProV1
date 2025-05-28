@@ -4,6 +4,7 @@ import os
 import tempfile # For handling temporary files on GAE
 from werkzeug.utils import secure_filename # For secure filenames
 import survey_processor # Your refactored logic
+import datetime
 
 app = Flask(__name__)
 # IMPORTANT: Change this secret key in a production environment!
@@ -51,10 +52,6 @@ def get_top_surveyids_from_file(file_storage):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        if 'rid_file' not in request.files or 'metrics_file' not in request.files:
-            flash('Both RID Lookup (CSV) and Marketplace Metrics (Excel) files are required!', 'error')
-            return render_template('index.html', messages=[], top_surveyids=[], top_counts=[])
-
         rid_file_storage = request.files.get('rid_file')
         metrics_file_storage = request.files.get('metrics_file')
         survey_loi_str = request.form.get('survey_loi', '10.0') # Default to 10.0 if not provided
@@ -66,7 +63,57 @@ def index():
         high_loi_multiplier = float(request.form.get('high_loi_multiplier', '4'))
         negative_recs_rate_threshold = float(request.form.get('negative_recs_rate_threshold', '15'))
         process_status_26_only = 'process_status_26_only' in request.form
-        
+        pid_only_mode = 'pid_only_mode' in request.form
+
+        # If neither file is provided, error
+        if (not rid_file_storage or rid_file_storage.filename == '') and (not metrics_file_storage or metrics_file_storage.filename == ''):
+            flash('Please upload at least the PID Metrics (Excel) file.', 'error')
+            return render_template('index.html', messages=[], top_surveyids=[], top_counts=[])
+
+        # If PID-only mode is checked, process PID-only mode (even if no RID file)
+        if pid_only_mode and metrics_file_storage and metrics_file_storage.filename:
+            try:
+                metrics_file_storage.stream.seek(0)
+                output_path = survey_processor.generate_pid_only_report(
+                    metrics_file_stream=metrics_file_storage.stream,
+                    output_dir=OUTPUT_FOLDER,
+                    conversion_rate_threshold=conversion_rate_threshold,
+                    security_terms_threshold=security_terms_threshold,
+                    negative_recs_rate_threshold=negative_recs_rate_threshold
+                )
+                flash('Processing complete! Your download should start automatically.', 'success')
+                session['just_processed'] = True
+                return send_file(
+                    output_path,
+                    as_attachment=True,
+                    download_name=os.path.basename(output_path)
+                )
+            except Exception as e:
+                flash(f"Error processing PID Metrics file: {e}", 'error')
+                return render_template('index.html', messages=[], top_surveyids=[], top_counts=[])
+
+        # If only metrics file is provided, process PID-only mode
+        if (not rid_file_storage or rid_file_storage.filename == '') and metrics_file_storage and metrics_file_storage.filename:
+            try:
+                metrics_file_storage.stream.seek(0)
+                output_path = survey_processor.generate_pid_only_report(
+                    metrics_file_stream=metrics_file_storage.stream,
+                    output_dir=OUTPUT_FOLDER,
+                    conversion_rate_threshold=conversion_rate_threshold,
+                    security_terms_threshold=security_terms_threshold,
+                    negative_recs_rate_threshold=negative_recs_rate_threshold
+                )
+                flash('Processing complete! Your download should start automatically.', 'success')
+                session['just_processed'] = True
+                return send_file(
+                    output_path,
+                    as_attachment=True,
+                    download_name=os.path.basename(output_path)
+                )
+            except Exception as e:
+                flash(f"Error processing PID Metrics file: {e}", 'error')
+                return render_template('index.html', messages=[], top_surveyids=[], top_counts=[])
+
         if rid_file_storage.filename == '' or metrics_file_storage.filename == '':
             top_surveyids, top_counts = get_top_surveyids_from_file(rid_file_storage) if rid_file_storage and rid_file_storage.filename else ([], [])
             flash('No selected file for one or both inputs. Please select both files.', 'error')

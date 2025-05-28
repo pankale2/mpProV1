@@ -263,3 +263,127 @@ def generate_survey_report(
         add_pivot_and_format(writer, merged_df) # Call the pivot table function
 
     return output_path
+
+def generate_pid_only_report(
+    metrics_file_stream,
+    output_dir,
+    conversion_rate_threshold=10,
+    security_terms_threshold=30,
+    negative_recs_rate_threshold=15
+):
+    """
+    Processes only the PID Metrics file and generates an Excel report with observations (PID-only mode).
+    Skips session_loi-based checks and ignores speeder/high_loi multipliers.
+    Adds a simple Observation pivot sheet with formatting.
+    Also deletes all blank columns from the output.
+    In the Observation Pivot sheet, do not add a row total column since there is only one column with numbers.
+    """
+    import pandas as pd
+    from datetime import datetime
+    import os
+    from openpyxl.styles import Font
+    metrics_df = pd.read_excel(metrics_file_stream, sheet_name='Marketplace Metrics by PID', skiprows=5)
+    metrics_df.columns = metrics_df.columns.str.strip().str.lower()
+    if 'pid' not in metrics_df.columns:
+        raise ValueError("Critical Error: 'pid' column not found in PID Metrics file.")
+    # Remove blank columns (all values are NaN or empty)
+    metrics_df = metrics_df.dropna(axis=1, how='all')
+    # Pass None for speeder_multiplier and high_loi_multiplier, and session_loi_checks=False
+    apply_pid_observation_logic(
+        metrics_df,
+        actual_loi=None,
+        conversion_rate_threshold=conversion_rate_threshold,
+        security_terms_threshold=security_terms_threshold,
+        speeder_multiplier=None,
+        high_loi_multiplier=None,
+        negative_recs_rate_threshold=negative_recs_rate_threshold,
+        session_loi_checks=False
+    )
+    os.makedirs(output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"pid_metrics_report_{timestamp}.xlsx"
+    output_path = os.path.join(output_dir, output_filename)
+    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+        metrics_df.to_excel(writer, sheet_name='PID Metrics Data', index=False)
+        workbook = writer.book
+        ws_data = writer.sheets['PID Metrics Data']
+        ws_data.freeze_panes = ws_data['B2']
+        ws_data.auto_filter.ref = ws_data.dimensions
+        # Add Observation Pivot with formatting and conditional totals
+        if 'Observation' in metrics_df.columns:
+            obs_counts = metrics_df['Observation'].value_counts().reset_index()
+            obs_counts.columns = ['Observation', 'Count']
+            na_row = obs_counts[obs_counts['Observation'] == '-n/a-']
+            other_rows = obs_counts[obs_counts['Observation'] != '-n/a-'].sort_values('Count', ascending=False)
+            obs_counts_sorted = pd.concat([na_row, other_rows], ignore_index=True)
+            # Only add totals if there are multiple unique observations
+            add_totals = len(obs_counts_sorted) > 1
+            # Do NOT add row total column in PID-only mode
+            obs_counts_sorted.to_excel(writer, sheet_name='Observation Pivot', index=False)
+            ws_pivot = writer.sheets['Observation Pivot']
+            ws_pivot.auto_filter.ref = ws_pivot.dimensions
+            ws_pivot.freeze_panes = ws_pivot['B2']
+            dark_green_font = Font(color="006400")
+            for row in ws_pivot.iter_rows(min_row=2, max_row=2, min_col=1, max_col=2):
+                for cell in row:
+                    if cell.value == '-n/a-' or (cell.row == 2 and ws_pivot['A2'].value == '-n/a-'):
+                        cell.font = dark_green_font
+            # Style Row Total row bold and add column total if needed
+            if add_totals:
+                total_row_idx = ws_pivot.max_row
+                # Only add bold if there is a Row Total row (but not a row total column)
+                if ws_pivot.cell(row=total_row_idx, column=1).value == 'Row Total':
+                    for cell in ws_pivot[total_row_idx]:
+                        cell.font = Font(bold=True)
+                # Add column total (sum of Count column) in the cell below last row
+                ws_pivot.cell(row=ws_pivot.max_row+1, column=1, value='Column Total')
+                ws_pivot.cell(row=ws_pivot.max_row, column=2, value=obs_counts_sorted['Count'].sum())
+                ws_pivot.cell(row=ws_pivot.max_row, column=2).font = Font(bold=True)
+    return output_path
+
+def apply_pid_observation_logic(
+    df,
+    actual_loi=None,
+    conversion_rate_threshold=10,
+    security_terms_threshold=30,
+    speeder_multiplier=3,
+    high_loi_multiplier=3,
+    negative_recs_rate_threshold=15,
+    session_loi_checks=True
+):
+    """
+    Applies all non-RID-based observation logic to the DataFrame in-place.
+    If session_loi_checks is False, skips Speeder and High LOI checks.
+    """
+    import pandas as pd
+    # Dates: Convert to datetime objects if they are not already.
+    try:
+        df["first_entry_date_time"] = pd.to_datetime(df.get("first_entry_date_time"), errors='coerce')
+        df["last_entry_date_time"] = pd.to_datetime(df.get("last_entry_date_time"), errors='coerce')
+    except Exception:
+        pass
+    # Set default value
+    df["Observation"] = "-n/a-"
+    # 1. Poor Conversion Rate (<conversion_rate_threshold%)
+    mask_poor_conversion = df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
+    df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
+    # 2. New User (bot?) (first_entry_date_time == last_entry_date_time and not NaT)
+    mask_new_user = (df["first_entry_date_time"] == df["last_entry_date_time"]) & \
+                    (df["first_entry_date_time"].notna()) & \
+                    (df["last_entry_date_time"].notna())
+    df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
+    # 3. High Security Terms (sum_f_and_g_column / total_surveys_entered > security_terms_threshold%)
+    mask_high_security = (df["total_surveys_entered"] > 0) & \
+                         ((df["sum_f_and_g_column"] / df["total_surveys_entered"]) > (security_terms_threshold / 100.0))
+    df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
+    if session_loi_checks and actual_loi is not None and speeder_multiplier and high_loi_multiplier:
+        # 4. Speeder (session_loi < actual_loi / speeder_multiplier)
+        mask_speeder = df["session_loi"] < (actual_loi / speeder_multiplier)
+        df.loc[mask_speeder.fillna(False), "Observation"] = "Speeder"
+        # 5. High LOI, Distracted (session_loi > actual_loi * high_loi_multiplier)
+        mask_high_loi = df["session_loi"] > (actual_loi * high_loi_multiplier)
+        df.loc[mask_high_loi.fillna(False), "Observation"] = "High LOI, Distracted"
+    # 6. High RR% (negative_recs_rate > negative_recs_rate_threshold%)
+    mask_high_rr = df["negative_recs_rate"] > (negative_recs_rate_threshold / 100.0)
+    df.loc[mask_high_rr.fillna(False), "Observation"] = "High RR%"
+    return df

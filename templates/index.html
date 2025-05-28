@@ -207,8 +207,8 @@
             border: 1px solid #cd25f1;
             border-radius: 8px;
             padding: 18px 22px 18px 22px;
-            min-width: 340px;
-            max-width: 520px;
+            min-width: 440px;
+            max-width: 820px;
             font-size: 0.8rem;
             box-shadow: 0 4px 16px rgba(34,34,59,0.12);
             text-align: left;
@@ -224,7 +224,7 @@
             background: none;
             border: none;
             color: #cd25f1;
-            font-size: 1.2em;
+            font-size: 1.5em;
             font-weight: bold;
             cursor: pointer;
             padding: 0;
@@ -283,33 +283,44 @@
                 <a href="#" class="info-icon" id="info-icon" tabindex="0" aria-label="Show observation logic info">i</a>
                 <div class="info-popup" id="info-popup">
                   <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
-                  <strong style="font-weight:600;">Notes:</strong>
-                  <li style="font-weight:600;">Upload the files without making any manual changes, as they are recieved.</li>
-                  <li>The <b style="color: #cd25f1;">Advanced Options</b> button would appear after the files are uploaded.</li>
-                  <li>Review the thresholds in the <b style="color: #cd25f1;">Advanced Options</b>, and update as required.</li>
-                  <li>Values updated in the options are saved in your browser cache and used going forwards for you.</li>
-                </br>
-                  <strong style="font-weight:600;">Observation Logic Summary</strong>
+                  <strong style="font-weight:600;">How This Tool Works</strong>
                   <ul style="margin-top:8px; margin-bottom:0; padding-left:18px; font-weight: normal;">
-                    <li>
-                      <span style="font-weight:600;">Checks are applied in this order:</span>
-                      <ol style="margin: 6px 0 0 18px; padding-left:0; font-weight: normal;">
-                        <li><span style="font-weight:600;">Poor Conversion Rate:</span> <code>system_conversion_rate</code> is below the threshold.</li>
-                        <li><span style="font-weight:600;">New User (bot?):</span> <code>FIRST_ENTRY_DATE_TIME</code> equals <code>LAST_ENTRY_DATE_TIME</code> and both are not empty.</li>
-                        <li><span style="font-weight:600;">High Security Terms:</span> <code>sum_f_and_g_column / total_surveys_entered</code> exceeds the threshold.</li>
-                        <li><span style="font-weight:600;">Speeder:</span> <code>session_loi</code> is less than <code>actual_loi / speeder_multiplier</code>.</li>
-                        <li><span style="font-weight:600;">High LOI, Distracted:</span> <code>session_loi</code> is greater than <code>actual_loi * high_loi_multiplier</code>.</li>
-                        <li><span style="font-weight:600;">High RR%:</span> <code>negative_recs_rate</code> exceeds the threshold.</li>
-                      </ol>
-                    </li>
-                    <li style="margin-top:8px;">
-                      <span style="font-weight:600;">How Observations Work:</span>
-                      <ul style="margin: 4px 0 0 18px; padding-left:0; font-weight: normal;">
-                        <li>The first check that matches for a row will set/overwrite the <span style="font-weight:600;">Observation</span> value.</li>
-                        <li>If multiple checks match, only the <span style="font-weight:600;">last matching check in the above order</span> will be shown for that row.</li>
-                        <li>If no checks match, <code style="color: #006400; font-weight:600;">-n/a-</code> is assigned for that PID.</li>
+                    <li style="margin-top:8px;"><b>Observation Logic:</b>
+                      <ul>
+                        <li><b>Standard Mode:</b> All checks are applied in this order:
+                          <ol style="margin: 6px 0 0 18px; padding-left:0; font-weight: normal;">
+                            <li><b>Poor Conversion Rate:</b> <code>system_conversion_rate</code> is below the threshold.</li>
+                            <li><b>New User (bot?):</b> <code>FIRST_ENTRY_DATE_TIME</code> equals <code>LAST_ENTRY_DATE_TIME</code> and both are not empty.</li>
+                            <li><b>High Security Terms:</b> <code>sum_f_and_g_column / total_surveys_entered</code> exceeds the threshold.</li>
+                            <li><b>Speeder:</b> <code>session_loi</code> is less than <code>actual_loi / speeder_multiplier</code>.</li>
+                            <li><b>High LOI, Distracted:</b> <code>session_loi</code> is greater than <code>actual_loi * high_loi_multiplier</code>.</li>
+                            <li><b>High RR%:</b> <code>negative_recs_rate</code> exceeds the threshold.</li>
+                          </ol>
+                        </li>
+                        <li><b>PID-only Mode:</b> Only PID-based checks are applied (Conversion Rate, New User, High Security Terms, High RR%). Speeder and High LOI checks (which require session_loi/LOI) are skipped.</li>
+                        <li style="margin-top:4px;">The <b>last matching check</b> in the above order sets the <b>Observation</b> for each PID. If no checks match, <code style="color: #006400; font-weight:600;">-n/a-</code> is assigned.</li>
                       </ul>
                     </li>
+                    <li><b>Two Processing Modes:</b>
+                      <ul style="margin-top:4px;">
+                        <li><b>Standard (RIDwithPID):</b> Requires both the <b>RID Lookup CSV</b> and <b>PID Metrics Excel</b> files, plus the <b>Survey LOI</b> value. All observation checks are applied.</li>
+                        <li><b>PID-only:</b> Requires only the <b>PID Metrics Excel</b> file. RID and LOI are not needed. Only PID-based checks are applied; session_loi-based checks are skipped.</li>
+                      </ul>
+                    </li>
+                    <li style="margin-top:8px;"><b>File & Input Requirements:</b>
+                      <ul>
+                        <li><b>Standard Mode:</b> Upload both files and enter Survey LOI. Advanced Options are available.</li>
+                        <li><b>PID-only Mode:</b> Upload only the PID Metrics file. RID and LOI inputs, and advanced options for Speeder/High LOI/status=26, are hidden/disabled.</li>
+                      </ul>
+                    </li>
+                    <li style="margin-top:8px;"><b>UI/UX Notes:</b>
+                      <ul>
+                        <li>Advanced Options and LOI input are only shown when relevant (based on mode and file uploads).</li>
+                        <li>Form values are saved in your browser for convenience.</li>
+                        <li>Notifications and validation guide you through required steps for each mode.</li>
+                      </ul>
+                    </li>
+                    <li style="margin-top:8px;"><b>Output Report:</b> New column "Observation" added at the end showing observation for each PID. Includes an <b>Observation Pivot</b> sheet summarizing counts of each unique observation.</li>                    
                   </ul>
                 </div>
               </h1>
@@ -319,15 +330,8 @@
                 </label>
                 <input type="file" name="rid_file" id="rid_file" accept=".csv" required>
               </div>
-              <div class="form-group">
-                <br><br>
-                <label for="metrics_file">PID Metrics File (Excel, exported from 
-                  <a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">SSRS</a>):
-                </label>
-                <input type="file" name="metrics_file" id="metrics_file" accept=".xlsx" required>
-              </div>
               <div class="form-group" id="survey-loi-group" style="display:none;">
-                <br><br>
+                <br>
                 <label for="survey_loi" id="survey-loi-label">
                     Survey Completion LOI (Get it from 
                     <span id="surveyid-links">
@@ -356,11 +360,22 @@
                     ):
                 </label>
                 <input type="number" name="survey_loi" id="survey_loi" value="" min="3" max="100" step="0.1" required>
-                <div id="show-advanced-btn-row" style="display:none; justify-content: left; width: 100%; margin-top: 24px;">
-                  <button type="button" id="toggle-advanced-btn" style="width: 80%; max-width: 350px; font-size: 1.1rem;">
-                    Show Advanced Options
-                  </button>
+              </div>
+              <div class="form-group">
+                <br>
+                <label for="metrics_file">PID Metrics File (Excel, exported from 
+                  <a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">SSRS</a>):
+                </label>
+                <input type="file" name="metrics_file" id="metrics_file" accept=".xlsx" required>
+                <div style="margin-top: 8px;">
+                  <input type="checkbox" id="pid_only_mode" name="pid_only_mode">
+                  <label for="pid_only_mode" style="font-weight: 600; color: #2a0b57; cursor: pointer;">Only process the PID sheet data, ignore RID sheet</label>
                 </div>
+              </div>
+              <div id="show-advanced-btn-row" style="display:none; justify-content: left; width: 100%; margin-top: 24px;">
+                <button type="button" id="toggle-advanced-btn" style="width: 80%; max-width: 350px; font-size: 1.1rem;">
+                  Show Advanced Options
+                </button>
               </div>
             </div>
             <div class="right-section">
@@ -378,13 +393,13 @@
                     </label>
                     <input type="number" name="security_terms_threshold" id="security_terms_threshold" value="30" min="0" max="100" step="0.1" required>
                   </div>
-                  <div class="form-group">
+                  <div class="form-group" id="speeder-group">
                     <label for="speeder_multiplier">
                         Speeder LOI - <span style="color:#cd25f1;">Divider</span> (session_loi &lt; actual_loi / <span style="color:#cd25f1;">this value</span>):
                     </label>
                     <input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required>
                   </div>
-                  <div class="form-group">
+                  <div class="form-group" id="high-loi-group">
                     <label for="high_loi_multiplier">
                         High LOI, Distracted - <span style="color:#cd25f1;">Multiplier</span> (session_loi &gt; actual_loi * <span style="color:#cd25f1;">this value</span>):
                     </label>
@@ -396,7 +411,7 @@
                     </label>
                     <input type="number" name="negative_recs_rate_threshold" id="negative_recs_rate_threshold" value="15" min="0" max="100" step="0.1" required>
                   </div>
-                  <div class="form-group">
+                  <div class="form-group" id="status26-group">
                     <label>
                       <input type="checkbox" name="process_status_26_only" id="process_status_26_only" checked>
                       <span style="color:#cd25f1;">Process only status=26</span> (Reconciled to Term) rows
@@ -428,6 +443,7 @@
           const processBtn = document.getElementById('process-btn');
           const status26Checkbox = document.getElementById('process_status_26_only');
           const loiInput = document.getElementById('survey_loi');
+          const pidOnlyCheckbox = document.getElementById('pid_only_mode');
           let advVisible = false;
 
           // Message area for JS alerts
@@ -476,78 +492,116 @@
           let metricsPIDs = [];
 
           function updateProcessBtnState() {
-            // Always check these conditions in order of priority
             let disabled = false;
             let tooltip = "";
-
-            // 1. Both files must be uploaded and parsed
-            if (!ridData || !metricsData) {
-              disabled = true;
-              tooltip = "Please upload both RID and Metrics files.";
+            // If PID-only mode is checked, only metrics file is required
+            if (pidOnlyCheckbox.checked) {
+              if (!metricsData) {
+                disabled = true;
+                tooltip = "Please upload the PID Metrics file.";
+              } else {
+                disabled = false;
+                tooltip = "";
+              }
+              // Hide Speeder/High LOI and status=26 in advanced options
+              if (advOptions) {
+                const speederGroup = document.getElementById('speeder-group');
+                const highLoiGroup = document.getElementById('high-loi-group');
+                const status26Group = document.getElementById('status26-group');
+                if (speederGroup) speederGroup.style.display = 'none';
+                if (highLoiGroup) highLoiGroup.style.display = 'none';
+                if (status26Group) status26Group.style.display = 'none';
+              }
+            } else {
+              // Normal mode: both files and valid LOI required
+              if (!ridData || !metricsData) {
+                disabled = true;
+                tooltip = "Please upload both RID and Metrics files, or enable PID-only mode.";
+              } else if (!loiInput.value || isNaN(loiInput.value)) {
+                disabled = true;
+                tooltip = "Please enter a valid LOI value.";
+              } else if (status26Checkbox.checked && ridStatus26Count === 0) {
+                disabled = true;
+                tooltip = "No status=26 rows in RID file. Uncheck the advanced option to proceed.";
+              }
+              // Show Speeder/High LOI and status=26 in advanced options
+              if (advOptions) {
+                const speederGroup = document.getElementById('speeder-group');
+                const highLoiGroup = document.getElementById('high-loi-group');
+                const status26Group = document.getElementById('status26-group');
+                if (speederGroup) speederGroup.style.display = '';
+                if (highLoiGroup) highLoiGroup.style.display = '';
+                if (status26Group) status26Group.style.display = '';
+              }
             }
-
-            // 2. LOI must be present and valid
-            else if (!loiInput.value || isNaN(loiInput.value)) {
-              disabled = true;
-              tooltip = "Please enter a valid LOI value.";
-            }
-
-            // 3. If checkbox is checked and no status=26 RIDs
-            else if (
-              status26Checkbox.checked &&
-              ridStatus26Count === 0
-            ) {
-              disabled = true;
-              tooltip = "No status=26 rows in RID file. Uncheck the advanced option to proceed.";
-            }
-
             processBtn.disabled = disabled;
             processBtn.title = disabled ? tooltip : "";
             processBtn.style.cursor = disabled ? "not-allowed" : "";
           }
 
-          // Message display and processing logic
+          // Show/hide LOI and advanced options toggle based on file uploads
+          function updateLoiAndAdvVisibility() {
+            // LOI input visible if RID file is uploaded
+            if (ridData) {
+              surveyLoiGroup.style.display = 'block';
+            } else {
+              surveyLoiGroup.style.display = 'none';
+            }
+            // Advanced options toggle visible if PID file is uploaded
+            if (metricsData) {
+              showAdvancedBtnRow.style.display = 'flex';
+            } else {
+              showAdvancedBtnRow.style.display = 'none';
+            }
+          }
+          // Call this after parsing files
           function processBothFiles() {
             clearJsMessages();
-
+            updateLoiAndAdvVisibility();
             // Only proceed if both files are uploaded and parsed
-            if (!ridData || !metricsData) {
+            if (!ridData && !metricsData) {
               updateProcessBtnState();
               surveyLoiGroup.style.display = 'none';
               showAdvancedBtnRow.style.display = 'none';
               document.getElementById('surveyid-links').innerHTML = 'Marketplace';
               return;
             }
-
-            // 1. Survey LOI group and advanced button
-            surveyLoiGroup.style.display = 'block';
-            showAdvancedBtnRow.style.display = 'flex';
-
-            // 2. Surveyid links
+            // 1. LOI group visible if RID is uploaded
+            if (ridData) {
+              surveyLoiGroup.style.display = 'block';
+            } else {
+              surveyLoiGroup.style.display = 'none';
+            }
+            // 2. Advanced options toggle visible if PID is uploaded
+            if (metricsData) {
+              showAdvancedBtnRow.style.display = 'flex';
+            } else {
+              showAdvancedBtnRow.style.display = 'none';
+            }
+            // 3. Surveyid links
             document.getElementById('surveyid-links').innerHTML = ridSurveyLinksHtml;
-
-            // 3b. Warn if there are ids with status other than 26
+            // 4. Warn if there are ids with status other than 26
             if (ridStatus26Count < ridPIDs.length) {
               addJsMessage("RIDs with status other than '26' present! Please update checkbox in Advanced Options as necessary.", "error");
             }
-
-            // 4. PID comparison and counts
+            // 5. PID comparison and counts (disable in PID-only mode)
             let msg = '';
-            msg += `RID file unique PIDs: ${ridPIDs.length}. Metrics file unique PIDs: ${metricsPIDs.length}. `;
-            if (ridPIDs.length && metricsPIDs.length) {
-              const ridSet = new Set(ridPIDs);
-              const metricsSet = new Set(metricsPIDs);
-              const onlyInRID = ridPIDs.filter(pid => !metricsSet.has(pid));
-              const onlyInMetrics = metricsPIDs.filter(pid => !ridSet.has(pid));
-              if (onlyInRID.length > 0) {
-                msg += `PIDs in RID sheet but not in PID Metrics: ${onlyInRID.slice(0,5).join(', ')}${onlyInRID.length>5?', ...':''}. `;
+            if (!pidOnlyCheckbox.checked) {
+              msg += `RID file unique PIDs: ${ridPIDs.length}. Metrics file unique PIDs: ${metricsPIDs.length}. `;
+              if (ridPIDs.length && metricsPIDs.length) {
+                const ridSet = new Set(ridPIDs);
+                const metricsSet = new Set(metricsPIDs);
+                const onlyInRID = ridPIDs.filter(pid => !metricsSet.has(pid));
+                const onlyInMetrics = metricsPIDs.filter(pid => !ridSet.has(pid));
+                if (onlyInRID.length > 0) {
+                  msg += `PIDs in RID sheet but not in PID Metrics: ${onlyInRID.slice(0,5).join(', ')}${onlyInRID.length>5?', ...':''}. `;
+                }
+                if (onlyInMetrics.length > 0) {
+                  msg += `PIDs in PID Metrics but not in RID sheet: ${onlyInMetrics.slice(0,5).join(', ')}${onlyInMetrics.length>5?', ...':''}. `;
+                }
               }
-              if (onlyInMetrics.length > 0) {
-                msg += `PIDs in PID Metrics but not in RID sheet: ${onlyInMetrics.slice(0,5).join(', ')}${onlyInMetrics.length>5?', ...':''}. `;
-              }
+              if (msg) addJsMessage(msg, "error");
             }
-            if (msg) addJsMessage(msg, "error");
-
             updateProcessBtnState();
           }
 
@@ -670,9 +724,7 @@
               parseRID(event.target.files[0]);
             } else {
               ridData = null;
-              surveyLoiGroup.style.display = 'none';
-              showAdvancedBtnRow.style.display = 'none';
-              document.getElementById('surveyid-links').innerHTML = 'Marketplace';
+              updateLoiAndAdvVisibility();
               clearJsMessages();
               updateProcessBtnState();
             }
@@ -691,9 +743,7 @@
               parseMetrics(event.target.files[0]);
             } else {
               metricsData = null;
-              surveyLoiGroup.style.display = 'none';
-              showAdvancedBtnRow.style.display = 'none';
-              document.getElementById('surveyid-links').innerHTML = 'Marketplace';
+              updateLoiAndAdvVisibility();
               clearJsMessages();
               updateProcessBtnState();
             }
@@ -807,6 +857,48 @@
         document.getElementById('main-form').addEventListener('change', saveFormState);
         // Restore on load
         window.addEventListener('DOMContentLoaded', restoreFormState);
+
+        // Make RID file input required only if PID-only mode is not checked
+        pidOnlyCheckbox.addEventListener('change', function() {
+          const ridGroup = ridFileInput.closest('.form-group');
+          const loiGroup = document.getElementById('survey-loi-group');
+          if (pidOnlyCheckbox.checked) {
+            ridFileInput.removeAttribute('required');
+            ridFileInput.disabled = true;
+            ridGroup.style.display = 'none';
+            ridFileInput.value = '';
+            // Hide and remove required from LOI input
+            loiInput.removeAttribute('required');
+            loiGroup.style.display = 'none';
+          } else {
+            ridFileInput.setAttribute('required', 'required');
+            ridFileInput.disabled = false;
+            ridGroup.style.display = '';
+            // Show and add required to LOI input
+            loiInput.setAttribute('required', 'required');
+            loiGroup.style.display = '';
+          }
+          updateProcessBtnState();
+        });
+        // On page load, set required attribute and visibility correctly
+        window.addEventListener('DOMContentLoaded', function() {
+          const ridGroup = ridFileInput.closest('.form-group');
+          const loiGroup = document.getElementById('survey-loi-group');
+          if (pidOnlyCheckbox.checked) {
+            ridFileInput.removeAttribute('required');
+            ridFileInput.disabled = true;
+            ridGroup.style.display = 'none';
+            ridFileInput.value = '';
+            loiInput.removeAttribute('required');
+            loiGroup.style.display = 'none';
+          } else {
+            ridFileInput.setAttribute('required', 'required');
+            ridFileInput.disabled = false;
+            ridGroup.style.display = '';
+            loiInput.setAttribute('required', 'required');
+            loiGroup.style.display = '';
+          }
+        });
         </script>
         <!-- SheetJS for Excel parsing in browser -->
         <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
