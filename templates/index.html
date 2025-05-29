@@ -527,7 +527,7 @@
               // Show Speeder/High LOI and status=26 in advanced options
               if (advOptions) {
                 const speederGroup = document.getElementById('speeder-group');
-                const highLoiGroup = document.getElementById('high-loi-group');
+                const highLoiGroup = document.getElementById('high_loi-group');
                 const status26Group = document.getElementById('status26-group');
                 if (speederGroup) speederGroup.style.display = '';
                 if (highLoiGroup) highLoiGroup.style.display = '';
@@ -862,6 +862,9 @@
         pidOnlyCheckbox.addEventListener('change', function() {
           const ridGroup = ridFileInput.closest('.form-group');
           const loiGroup = document.getElementById('survey-loi-group');
+          const speederGroup = document.getElementById('speeder-group');
+          const highLoiGroup = document.getElementById('high-loi-group');
+          const status26Group = document.getElementById('status26-group');
           if (pidOnlyCheckbox.checked) {
             ridFileInput.removeAttribute('required');
             ridFileInput.disabled = true;
@@ -870,6 +873,10 @@
             // Hide and remove required from LOI input
             loiInput.removeAttribute('required');
             loiGroup.style.display = 'none';
+            // Hide advanced options related to LOI
+            if (speederGroup) speederGroup.style.display = 'none';
+            if (highLoiGroup) highLoiGroup.style.display = 'none';
+            if (status26Group) status26Group.style.display = 'none';
           } else {
             ridFileInput.setAttribute('required', 'required');
             ridFileInput.disabled = false;
@@ -877,6 +884,10 @@
             // Show and add required to LOI input
             loiInput.setAttribute('required', 'required');
             loiGroup.style.display = '';
+            // Always show advanced options related to LOI when switching back
+            if (speederGroup) speederGroup.style.display = '';
+            if (highLoiGroup) highLoiGroup.style.display = '';
+            if (status26Group) status26Group.style.display = '';
           }
           updateProcessBtnState();
         });
@@ -884,19 +895,20 @@
         window.addEventListener('DOMContentLoaded', function() {
           const ridGroup = ridFileInput.closest('.form-group');
           const loiGroup = document.getElementById('survey-loi-group');
+          // Always hide LOI input on page load
+          loiGroup.style.display = 'none';
           if (pidOnlyCheckbox.checked) {
             ridFileInput.removeAttribute('required');
             ridFileInput.disabled = true;
             ridGroup.style.display = 'none';
             ridFileInput.value = '';
             loiInput.removeAttribute('required');
-            loiGroup.style.display = 'none';
           } else {
             ridFileInput.setAttribute('required', 'required');
             ridFileInput.disabled = false;
             ridGroup.style.display = '';
             loiInput.setAttribute('required', 'required');
-            loiGroup.style.display = '';
+            // LOI input will be shown only after RID is uploaded and parsed
           }
         });
         </script>
