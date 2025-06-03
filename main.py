@@ -40,13 +40,19 @@ def get_top_surveyids_from_file(file_storage):
         file_storage.stream.seek(0)
         df = pd.read_csv(file_storage.stream)
         file_storage.stream.seek(0)
-        if 'surveyid' in df.columns:
-            surveyid_counts = df['surveyid'].value_counts()
+        
+        # Case-insensitive column search
+        surveyid_col = next((col for col in df.columns if col.lower() == 'surveyid'), None)
+        
+        if surveyid_col:
+            # Convert to string and handle NaN/None values
+            df[surveyid_col] = df[surveyid_col].astype(str).replace('nan', '')
+            surveyid_counts = df[surveyid_col][df[surveyid_col].str.strip().astype(bool)].value_counts()
             top_surveyids = list(surveyid_counts.index[:3])
             top_counts = list(surveyid_counts.values[:3])
             return top_surveyids, top_counts
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Error parsing survey IDs: {e}")
     return [], []
 
 @app.route('/', methods=['GET', 'POST'])

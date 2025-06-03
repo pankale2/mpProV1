@@ -4,4 +4,5 @@ __pycache__/
 *.pyc
 .git/
 .vscode/
+Example inputs/
 # Add any other local files or folders you don't want to deploy
