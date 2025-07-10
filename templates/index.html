@@ -260,6 +260,17 @@
         @media (max-width: 600px) {
             .info-popup { left: 0; min-width: 220px; max-width: 98vw; font-size: 0.95rem; }
         }
+        #date-mode-group .switch {
+          width: 54px;
+          height: 28px;
+          margin-right: 0;
+        }
+        #date-mode-group .slider {
+          background-color: #2a0b57;
+        }
+        #date-mode-group input:checked + .slider {
+          background-color: #cd25f1;
+        }
     </style>
     <!-- Add Inter font from Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -302,14 +313,14 @@
                         </li>
                       </ul>
                     </li>
-                    <li style="margin-top:8px;"><b>Observation Checks &  Order:</b>
+                    <li style="margin-top:8px;"><b>Observation Checks &amp;  Order:</b>
                       <ol style="margin: 6px 0 0 18px; padding-left:0;">
-                        <li><b>Poor Conversion Rate:</b> system_conversion_rate < threshold</li>
-                        <li><b>New User (bot?):</b> first_entry_date = last_entry_date</li>
-                        <li><b>High Security Terms:</b> (F+G)/total_surveys > threshold</li>
-                        <li><b>Speeder:</b> session_loi < actual_loi/divider (RID+PID only)</li>
-                        <li><b>High LOI, Distracted:</b> session_loi > actual_loi×multiplier (RID+PID only)</li>
-                        <li><b>High RR%:</b> negative_recs_rate > threshold</li>                                              
+                        <li><b>Poor Conversion Rate:</b> system_conversion_rate &lt; threshold</li>
+                        <li><b>New User (bot?):</b> FIRST_ENTRY_DATE_TIME = LAST_ENTRY_DATE_TIME</li>
+                        <li><b>High Security Terms:</b> <code>sum_f_and_g_column / TOTAL_SYSTEM_ENTRANTS &gt; threshold</code></li>
+                        <li><b>Speeder:</b> session_loi &lt; actual_loi/divider (RID+PID only)</li>
+                        <li><b>High LOI, Distracted:</b> session_loi &gt; actual_loi×multiplier (RID+PID only)</li>
+                        <li><b>High RR%:</b> negative_recs_rate &gt; threshold</li>                                              
                       </ol>
                       <p>
                         <b>If a record qualifies multiple checks, <i>only the later check (in the above order) is noted.</i></b>
@@ -476,6 +487,20 @@
                     </label>
                     <input type="number" name="negative_recs_rate_threshold" id="negative_recs_rate_threshold" value="15" min="0" max="100" step="0.1" required>
                   </div>
+                  <div class="form-group" id="date-mode-group">
+                    <label style="margin-bottom: 0;">
+                      <span style="font-weight:600;">New User (bot?) check uses:</span>
+                      <span style="margin-left:10px;">
+                        <span id="date-mode-label-left" style="font-weight:600; color:#2a0b57; margin-right:8px;">Use only DATE</span>
+                        <label class="switch" style="vertical-align:middle;">
+                          <input type="checkbox" id="date_mode_switch" name="date_mode_switch" checked>
+                          <span class="slider round"></span>
+                        </label>
+                        <span id="date-mode-label-right" style="font-weight:600; color:#cd25f1; margin-left:8px;">Use DATE_TIME</span>
+                      </span>
+                    </label>
+                    <input type="hidden" name="use_datetime_for_newuser" id="use_datetime_for_newuser" value="1">
+                  </div>
                   <div class="form-group" id="status26-group">
                     <label>
                       <input type="checkbox" name="process_status_26_only" id="process_status_26_only" checked>
@@ -510,6 +535,8 @@
           const loiInput = document.getElementById('survey_loi');
           // REPLACE pidOnlyCheckbox with modeSlider
           const modeSlider = document.getElementById('mode_slider');
+          const dateModeSwitch = document.getElementById('date_mode_switch');
+          const useDatetimeInput = document.getElementById('use_datetime_for_newuser');
           function isPidOnlyMode() { return modeSlider.checked; }
           let advVisible = false;
 
@@ -805,6 +832,7 @@
               localStorage.setItem('form_' + el.name, el.value);
             }
           });
+          localStorage.setItem('form_date_mode_switch', dateModeSwitch.checked ? '1' : '0');
         }
         function restoreFormState() {
           const form = document.getElementById('main-form');
@@ -824,6 +852,11 @@
               if (val !== null) el.value = val;
             }
           });
+          const dateModeSaved = localStorage.getItem('form_date_mode_switch');
+          if (dateModeSaved !== null) {
+              dateModeSwitch.checked = dateModeSaved === '1';
+          }
+          syncDateModeSwitchAndHidden();
         }
         // Add red highlight for empty survey_loi
         function updateSurveyLoiHighlight() {
@@ -877,6 +910,46 @@
           if (e.key === 'Escape' && infoPopup.classList.contains('visible')) {
             infoPopup.classList.remove('visible');
           }
+        });
+
+        // Ensure hidden input is in sync with switch on load
+        function syncDateModeSwitchAndHidden() {
+          useDatetimeInput.value = dateModeSwitch.checked ? "1" : "0";
+        }
+        // On page load, set default (checked = Use DATE_TIME)
+        window.addEventListener('DOMContentLoaded', function() {
+          // Always default slider to "RID+PID Mode" (unchecked)
+          modeSlider.checked = false;
+          const ridGroup = ridFileInput.closest('.form-group');
+          const loiGroup = document.getElementById('survey-loi-group');
+          // Always hide LOI input on page load
+          loiGroup.style.display = 'none';
+          if (isPidOnlyMode()) {
+            ridFileInput.removeAttribute('required');
+            ridFileInput.disabled = true;
+            ridGroup.style.display = 'none';
+            ridFileInput.value = '';
+            loiInput.removeAttribute('required');
+          } else {
+            ridFileInput.setAttribute('required', 'required');
+            ridFileInput.disabled = false;
+            ridGroup.style.display = '';
+            // Show and add required to LOI input only if RID file is uploaded and parsed
+            if (ridData && ridData.length > 1) {
+              loiInput.setAttribute('required', 'required');
+              loiGroup.style.display = '';
+            } else {
+              loiInput.setAttribute('required', 'required');
+              loiGroup.style.display = 'none';
+            }
+          }
+          syncDateModeSwitchAndHidden();
+        });
+
+        // On switch change, update hidden input and save state
+        dateModeSwitch.addEventListener('change', function() {
+          syncDateModeSwitchAndHidden();
+          saveFormState();
         });
         </script>
         <!-- SheetJS for Excel parsing in browser -->

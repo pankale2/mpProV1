@@ -180,7 +180,8 @@ def generate_survey_report(
     speeder_multiplier=3,
     high_loi_multiplier=3,
     negative_recs_rate_threshold=15,
-    process_status_26_only=True
+    process_status_26_only=True,
+    use_datetime_for_newuser=True
 ):
     """
     Processes the survey files and generates an Excel report with observations and a pivot table.
@@ -229,15 +230,22 @@ def generate_survey_report(
     mask_poor_conversion = merged_df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
     merged_df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
 
-    # 2. New User (bot?) (first_entry_date_time == last_entry_date_time and not NaT)
-    mask_new_user = (merged_df["first_entry_date_time"] == merged_df["last_entry_date_time"]) & \
-                    (merged_df["first_entry_date_time"].notna()) & \
-                    (merged_df["last_entry_date_time"].notna())
+    # 2. New User (bot?) configurable by use_datetime_for_newuser
+    if use_datetime_for_newuser:
+        # Use *_date_time columns
+        mask_new_user = (merged_df["first_entry_date_time"] == merged_df["last_entry_date_time"]) & \
+                        (merged_df["first_entry_date_time"].notna()) & \
+                        (merged_df["last_entry_date_time"].notna())
+    else:
+        # Use *_date columns (compare as string, or convert to date if needed)
+        first_date = merged_df.get("first_entry_date")
+        last_date = merged_df.get("last_entry_date")
+        mask_new_user = (first_date == last_date) & first_date.notna() & last_date.notna()
     merged_df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
 
-    # 3. High Security Terms (sum_f_and_g_column / total_surveys_entered > security_terms_threshold%)
-    mask_high_security = (merged_df["total_surveys_entered"] > 0) & \
-                         ((merged_df["sum_f_and_g_column"] / merged_df["total_surveys_entered"]) > (security_terms_threshold / 100.0))
+    # 3. High Security Terms (sum_f_and_g_column / total_system_entrants > security_terms_threshold%)
+    mask_high_security = (merged_df["total_system_entrants"] > 0) & \
+                         ((merged_df["sum_f_and_g_column"] / merged_df["total_system_entrants"]) > (security_terms_threshold / 100.0))
     merged_df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
 
     # 4. Speeder (session_loi < actual_loi / speeder_multiplier)
@@ -251,6 +259,9 @@ def generate_survey_report(
     # 6. High RR% (negative_recs_rate > negative_recs_rate_threshold%)
     mask_high_rr = merged_df["negative_recs_rate"] > (negative_recs_rate_threshold / 100.0)
     merged_df.loc[mask_high_rr.fillna(False), "Observation"] = "High RR%"
+
+    # Remove blank columns (all values are NaN or empty) before writing to Excel
+    merged_df = merged_df.dropna(axis=1, how='all')
 
     # --- Generate Excel File ---
     os.makedirs(output_dir, exist_ok=True) # Ensure output directory exists
@@ -269,7 +280,8 @@ def generate_pid_only_report(
     output_dir,
     conversion_rate_threshold=10,
     security_terms_threshold=30,
-    negative_recs_rate_threshold=15
+    negative_recs_rate_threshold=15,
+    use_datetime_for_newuser=True  # <-- add this
 ):
     """
     Processes only the PID Metrics file and generates an Excel report with observations (PID-only mode).
@@ -297,7 +309,8 @@ def generate_pid_only_report(
         speeder_multiplier=None,
         high_loi_multiplier=None,
         negative_recs_rate_threshold=negative_recs_rate_threshold,
-        session_loi_checks=False
+        session_loi_checks=False,
+        use_datetime_for_newuser=use_datetime_for_newuser  # <-- pass this
     )
     os.makedirs(output_dir, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -349,7 +362,8 @@ def apply_pid_observation_logic(
     speeder_multiplier=3,
     high_loi_multiplier=3,
     negative_recs_rate_threshold=15,
-    session_loi_checks=True
+    session_loi_checks=True,
+    use_datetime_for_newuser=True  # Add this parameter
 ):
     """
     Applies all non-RID-based observation logic to the DataFrame in-place.
@@ -367,14 +381,20 @@ def apply_pid_observation_logic(
     # 1. Poor Conversion Rate (<conversion_rate_threshold%)
     mask_poor_conversion = df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
     df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
-    # 2. New User (bot?) (first_entry_date_time == last_entry_date_time and not NaT)
-    mask_new_user = (df["first_entry_date_time"] == df["last_entry_date_time"]) & \
-                    (df["first_entry_date_time"].notna()) & \
-                    (df["last_entry_date_time"].notna())
+    # 2. New User (bot?) - Use correct columns based on use_datetime_for_newuser
+    if use_datetime_for_newuser:
+        mask_new_user = (df["first_entry_date_time"] == df["last_entry_date_time"]) & \
+                        (df["first_entry_date_time"].notna()) & \
+                        (df["last_entry_date_time"].notna())
+    else:
+        # Use *_date columns
+        mask_new_user = (df["first_entry_date"] == df["last_entry_date"]) & \
+                        (df["first_entry_date"].notna()) & \
+                        (df["last_entry_date"].notna())
     df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
-    # 3. High Security Terms (sum_f_and_g_column / total_surveys_entered > security_terms_threshold%)
-    mask_high_security = (df["total_surveys_entered"] > 0) & \
-                         ((df["sum_f_and_g_column"] / df["total_surveys_entered"]) > (security_terms_threshold / 100.0))
+    # 3. High Security Terms (sum_f_and_g_column / total_system_entrants > security_terms_threshold%)
+    mask_high_security = (df["total_system_entrants"] > 0) & \
+                         ((df["sum_f_and_g_column"] / df["total_system_entrants"]) > (security_terms_threshold / 100.0))
     df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
     if session_loi_checks and actual_loi is not None and speeder_multiplier and high_loi_multiplier:
         # 4. Speeder (session_loi < actual_loi / speeder_multiplier)

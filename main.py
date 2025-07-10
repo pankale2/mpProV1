@@ -70,6 +70,7 @@ def index():
         negative_recs_rate_threshold = float(request.form.get('negative_recs_rate_threshold', '15'))
         process_status_26_only = 'process_status_26_only' in request.form
         pid_only_mode = 'pid_only_mode' in request.form
+        use_datetime_for_newuser = request.form.get('use_datetime_for_newuser', '1') == '1'
 
         # If neither file is provided, error
         if (not rid_file_storage or rid_file_storage.filename == '') and (not metrics_file_storage or metrics_file_storage.filename == ''):
@@ -85,7 +86,8 @@ def index():
                     output_dir=OUTPUT_FOLDER,
                     conversion_rate_threshold=conversion_rate_threshold,
                     security_terms_threshold=security_terms_threshold,
-                    negative_recs_rate_threshold=negative_recs_rate_threshold
+                    negative_recs_rate_threshold=negative_recs_rate_threshold,
+                    use_datetime_for_newuser=use_datetime_for_newuser  # <-- pass this!
                 )
                 flash('Processing complete! Your download should start automatically.', 'success')
                 session['just_processed'] = True
@@ -107,7 +109,8 @@ def index():
                     output_dir=OUTPUT_FOLDER,
                     conversion_rate_threshold=conversion_rate_threshold,
                     security_terms_threshold=security_terms_threshold,
-                    negative_recs_rate_threshold=negative_recs_rate_threshold
+                    negative_recs_rate_threshold=negative_recs_rate_threshold,
+                    use_datetime_for_newuser=use_datetime_for_newuser  # <-- pass this!
                 )
                 flash('Processing complete! Your download should start automatically.', 'success')
                 session['just_processed'] = True
@@ -177,7 +180,8 @@ def index():
                 speeder_multiplier=speeder_multiplier,
                 high_loi_multiplier=high_loi_multiplier,
                 negative_recs_rate_threshold=negative_recs_rate_threshold,
-                process_status_26_only=process_status_26_only
+                process_status_26_only=process_status_26_only,
+                use_datetime_for_newuser=use_datetime_for_newuser
             )
 
             # Read surveyids for UI (top 3 by count)
