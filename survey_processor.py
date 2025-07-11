@@ -25,49 +25,66 @@ def read_metrics_file_from_stream(file_stream):
         df['pid'] = df['pid'].astype(str).str.strip()
     return df
 
-def get_formatting_ranges(worksheet, header, data_rows, total_column=None):
-    """Helper function to calculate formatting ranges and exclusions."""
-    exclude_cols = [1]  # First column always excluded
-    last_data_row = data_rows - 1  # Exclude Column Total row
-    
-    try:
-        # Exclude -n/a- column if present
-        if '-n/a-' in header:
-            exclude_cols.append(header.index('-n/a-') + 1)
-        
-        # Exclude total columns if present
-        if total_column and total_column in header:
-            exclude_cols.append(header.index(total_column) + 1)
-        
-    except ValueError:
-        pass  # Column not found
-    
-    return {
-        'exclude_cols': exclude_cols,
-        'last_data_row': last_data_row
-    }
+def get_formatting_ranges(header, data_rows, total_column=None, has_col_total_row=False):
+    """
+    Helper function to calculate formatting exclusions and last data row for conditional formatting.
+    header: list of column names (Excel order, 1-based for openpyxl)
+    data_rows: total number of rows written (including totals row)
+    total_column: name of total column (e.g. 'Total_Flagged', 'Row Total')
+    has_col_total_row: True if the last row is a column total row
+    Returns: (exclude_cols, last_data_row)
+    """
+    exclude_cols = [1]  # Always exclude first column (index 1)
+    if '-n/a-' in header:
+        exclude_cols.append(header.index('-n/a-') + 1)
+    if total_column and total_column in header:
+        exclude_cols.append(header.index(total_column) + 1)
+    # Only format up to last data row (exclude column total row if present)
+    last_data_row = data_rows - 1 if has_col_total_row else data_rows
+    return exclude_cols, last_data_row
 
 def apply_conditional_formatting(worksheet, start_col, end_col, data_rows, exclude_cols=None, total_rows=None):
     """Apply conditional formatting to specified range."""
     if exclude_cols is None:
         exclude_cols = []
-    
-    # Create color scale rule
     color_scale_rule = ColorScaleRule(
         start_type='num',
         start_value=0,
-        start_color='FFFFFF',  # White
+        start_color='FFFFFF',
         end_type='num',
-        end_value=total_rows,  # Total rows in Combined Data
-        end_color='f82b1b'    # Specified red
+        end_value=total_rows,
+        end_color='f82b1b'
     )
-    
-    # Apply to each column except excluded ones
     for col in range(start_col, end_col + 1):
         if col not in exclude_cols:
             col_letter = worksheet.cell(row=1, column=col).column_letter
             cell_range = f"{col_letter}2:{col_letter}{data_rows}"
             worksheet.conditional_formatting.add(cell_range, color_scale_rule)
+
+def apply_na_column_formatting(worksheet, header):
+    """Apply dark green formatting to -n/a- column if present."""
+    if '-n/a-' in header:
+        na_col_idx = header.index('-n/a-') + 1  # openpyxl is 1-based
+        dark_green_font = Font(color="006400")
+        for row in worksheet.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=worksheet.max_row):
+            for cell in row:
+                cell.font = dark_green_font
+        worksheet.cell(row=1, column=na_col_idx).font = dark_green_font
+
+def format_pivot_sheet(worksheet, header, data_rows, total_column, total_rows, has_col_total_row=True):
+    """Standardized pivot formatting: conditional formatting + -n/a- styling."""
+    exclude_cols, last_data_row = get_formatting_ranges(
+        header, data_rows, total_column=total_column, has_col_total_row=has_col_total_row
+    )
+    apply_conditional_formatting(
+        worksheet,
+        start_col=2,
+        end_col=len(header),
+        data_rows=last_data_row,
+        exclude_cols=exclude_cols,
+        total_rows=total_rows
+    )
+    apply_na_column_formatting(worksheet, header)
 
 def add_check_results_pivot(writer, df_merged):
     """Add pivot table showing all check flags by supplier."""
@@ -137,32 +154,27 @@ def add_check_results_pivot(writer, df_merged):
     # Convert pixels to Excel column width units (approximately)
     excel_width = 200 / 7  # Excel width units are roughly 7 pixels
     ws_pivot.column_dimensions['A'].width = excel_width
-    
-    # Get formatting ranges
-    format_info = get_formatting_ranges(
-        ws_pivot, 
-        header=header,
-        data_rows=len(pivot_df),
-        total_column='Total_Flagged'
+
+    # Use helper for exclusions and data range
+    exclude_cols, last_data_row = get_formatting_ranges(
+        header, len(pivot_df), total_column='Total_Flagged', has_col_total_row=True
     )
-    
-    # Apply conditional formatting
     total_rows = len(df_merged)
     apply_conditional_formatting(
         ws_pivot,
         start_col=2,
         end_col=len(header),
-        data_rows=format_info['last_data_row'],
-        exclude_cols=format_info['exclude_cols'],
+        data_rows=last_data_row,
+        exclude_cols=exclude_cols,
         total_rows=total_rows
     )
     
     # Apply existing -n/a- column formatting
     dark_green_font = Font(color="006400")
-    for row in ws_pivot.iter_rows(min_row=2, min_col=format_info['exclude_cols'][1], max_col=format_info['exclude_cols'][1]):
+    for row in ws_pivot.iter_rows(min_row=2, min_col=exclude_cols[1], max_col=exclude_cols[1]):
         for cell in row:
             cell.font = dark_green_font
-    ws_pivot.cell(row=1, column=format_info['exclude_cols'][1]).font = dark_green_font
+    ws_pivot.cell(row=1, column=exclude_cols[1]).font = dark_green_font
 
 def add_pivot_and_format(writer, df_merged):
     """
@@ -255,23 +267,15 @@ def add_pivot_and_format(writer, df_merged):
         excel_width = 200 / 7  # Excel width units are roughly 7 pixels
         ws_pivot.column_dimensions['A'].width = excel_width
 
-        # Calculate columns to exclude from conditional formatting
-        exclude_cols = [1]  # First column (supplier_bu)
-        try:
-            if '-n/a-' in header:
-                exclude_cols.append(header.index('-n/a-') + 1)
-            if 'Row Total' in header:
-                exclude_cols.append(header.index('Row Total') + 1)
-        except ValueError:
-            pass  # Column not present
-        
-        # Apply conditional formatting
-        total_rows = len(df_merged)  # Get total rows from Combined Data
+        exclude_cols, last_data_row = get_formatting_ranges(
+            header, len(pivot), total_column='Row Total', has_col_total_row=True
+        )
+        total_rows = len(df_merged)
         apply_conditional_formatting(
             ws_pivot,
             start_col=2,
             end_col=len(header),
-            data_rows=len(pivot),
+            data_rows=last_data_row,
             exclude_cols=exclude_cols,
             total_rows=total_rows
         )
@@ -321,45 +325,23 @@ def add_pivot_and_format(writer, df_merged):
             cols = list(pivot_entrydate_supplier.columns)
             if 'Row Total' in cols:
                 cols.remove('Row Total')
-            col_totals = pivot_entrydate_supplier[cols].sum()
-            sorted_cols = col_totals.sort_values(ascending=False).index
+            col_totals_sorted = pivot_entrydate_supplier.loc[pivot_entrydate_supplier.index != 'Column Total', cols].sum()
+            sorted_cols = col_totals_sorted.sort_values(ascending=False).index
             sorted_cols = list(sorted_cols) + ['Row Total']
             pivot_entrydate_supplier = pivot_entrydate_supplier[sorted_cols]
 
             ws_pivot1 = workbook.create_sheet('Pivot EntryDate x Supplier')
-            # Write header
             header = ['entrydate'] + list(pivot_entrydate_supplier.columns)
             ws_pivot1.append(header)
-            
-            # Write data rows
             for idx, row_data in pivot_entrydate_supplier.iterrows():
                 ws_pivot1.append([idx] + list(row_data.values))
-
-            # Set entrydate column width to 100 pixels
+            # Set all columns to 100 pixels width
             excel_width = 100 / 7  # Excel width units are roughly 7 pixels
-            ws_pivot1.column_dimensions['A'].width = excel_width
+            for col_idx in range(1, len(header) + 1):
+                col_letter = ws_pivot1.cell(row=1, column=col_idx).column_letter
+                ws_pivot1.column_dimensions[col_letter].width = excel_width
 
-            # Apply conditional formatting
-            total_rows = len(df_merged)  # Get total rows from Combined Data
-            
-            # Calculate columns to exclude from conditional formatting
-            exclude_cols = [1]  # First column (entrydate)
-            try:
-                # Exclude Row Total column if present
-                if 'Row Total' in header:
-                    exclude_cols.append(header.index('Row Total') + 1)
-            except ValueError:
-                pass
-
-            # Apply conditional formatting only up to the last data row (exclude Column Total row)
-            apply_conditional_formatting(
-                ws_pivot1,
-                start_col=2,
-                end_col=len(header),
-                data_rows=len(pivot_entrydate_supplier),  # One less than before to exclude Column Total
-                exclude_cols=exclude_cols,
-                total_rows=total_rows
-            )
+            format_pivot_sheet(ws_pivot1, header, len(pivot_entrydate_supplier), 'Row Total', len(df_merged))
 
         # 2. Pivot: entrydate_only vs Observation
         if 'entrydate_only' in df_merged.columns and 'Observation' in df_merged.columns:
@@ -375,62 +357,47 @@ def add_pivot_and_format(writer, df_merged):
             # Sort index by date (ascending)
             pivot_entrydate_obs = pivot_entrydate_obs.sort_index()
             
-            # Sort columns: "-n/a-" first, then others by total (highest first)
+            # Add row totals
+            pivot_entrydate_obs['Row Total'] = pivot_entrydate_obs.sum(axis=1)
+            
+            # Add column totals
+            col_totals = pivot_entrydate_obs.sum()
+            col_totals.name = 'Column Total'
+            pivot_entrydate_obs = pd.concat([pivot_entrydate_obs, pd.DataFrame([col_totals], index=['Column Total'])])
+            
+            # Sort columns: "-n/a-" first, then others by total (highest first), then Row Total last
             cols = list(pivot_entrydate_obs.columns)
             sorted_cols = []
-            
-            # Add -n/a- first if it exists
             if '-n/a-' in cols:
                 sorted_cols.append('-n/a-')
                 cols.remove('-n/a-')
-            
-            # Sort remaining columns by total
-            col_totals = pivot_entrydate_obs[cols].sum()
-            remaining_cols = col_totals.sort_values(ascending=False).index
+            if 'Row Total' in cols:
+                cols.remove('Row Total')
+            col_totals_sorted = pivot_entrydate_obs.loc[pivot_entrydate_obs.index != 'Column Total', cols].sum()
+            remaining_cols = col_totals_sorted.sort_values(ascending=False).index
             sorted_cols.extend(remaining_cols)
             sorted_cols.append('Row Total')
-            
-            # Reorder columns
             pivot_entrydate_obs = pivot_entrydate_obs[sorted_cols]
 
             ws_pivot2 = workbook.create_sheet('Pivot EntryDate x Flags')
-            # Write header and apply formatting
             header = ['entrydate'] + list(pivot_entrydate_obs.columns)
             ws_pivot2.append(header)
-            
-            # Write data rows
             for idx, row in pivot_entrydate_obs.iterrows():
                 ws_pivot2.append([idx] + list(row.values))
-            
-            # Set entrydate column width to 100 pixels
-            excel_width = 100 / 7  # Excel width units are roughly 7 pixels
-            ws_pivot2.column_dimensions['A'].width = excel_width
+            ws_pivot2.column_dimensions['A'].width = 100 / 7
 
-            # Calculate columns to exclude
-            na_col_idx = header.index('-n/a-') + 1 if '-n/a-' in header else None
-            exclude_cols = [1]  # First column (entrydate)
-            if na_col_idx:
-                exclude_cols.append(na_col_idx)
-            
-            # Apply conditional formatting
-            total_rows = len(df_merged)  # Get total rows from Combined Data
-            apply_conditional_formatting(
-                ws_pivot2,
-                start_col=2,
-                end_col=len(header),
-                data_rows=len(pivot_entrydate_obs) + 1,
-                exclude_cols=exclude_cols,
-                total_rows=total_rows
-            )
-            
-            # Apply existing -n/a- formatting if present
-            if '-n/a-' in pivot_entrydate_obs.columns:
-                na_col_idx = list(pivot_entrydate_obs.columns).index('-n/a-') + 2
+            format_pivot_sheet(ws_pivot2, header, len(pivot_entrydate_obs), 'Row Total', len(df_merged))
+
+            # Format -n/a- column in dark green (like other pivots)
+            try:
+                na_col_idx = header.index('-n/a-') + 1  # openpyxl is 1-based
                 dark_green_font = Font(color="006400")
-                for row in ws_pivot2.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx):
+                for row in ws_pivot2.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=ws_pivot2.max_row):
                     for cell in row:
                         cell.font = dark_green_font
                 ws_pivot2.cell(row=1, column=na_col_idx).font = dark_green_font
+            except ValueError:
+                pass  # "-n/a-" column not present
 
     except Exception as e:
         print(f"Error creating pivot table: {e}")

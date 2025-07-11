@@ -322,10 +322,7 @@
                         <li><b>High LOI, Distracted:</b> session_loi &gt; actual_loi×multiplier (RID+PID only)</li>
                         <li><b>High RR%:</b> negative_recs_rate &gt; threshold</li>                                              
                       </ol>
-                      <p>
-                        <b>If a record qualifies multiple checks, <i>only the later check (in the above order) is noted.</i></b>
-                      </br>
-                        <b>If no checks match: <code style="color: #006400; font-weight:600;">-n/a-</code> is noted in the Observation column.</b></p>
+                      <p><b>If no checks match: <code style="color: #006400; font-weight:600;">-n/a-</code> is noted in the Observation column.</b></p>
                     </li>
                     <li style="margin-top:8px;"><b>Advanced Options:</b>
                       <ul>
@@ -337,21 +334,13 @@
                     <li style="margin-top:8px;"><b>Output Report:</b>
                       <ul>
                         <li>"Observation" column shows final/latest matching check (as before).</li>
-                        <li>Six additional columns show all matching checks (True = matched, blank = not matched):
+                        <li>Six additional columns show all matching checks (True/False)</li>
+                        <li>Four pivot sheets summarizing results:
                           <ul>
-                            <li>Poor_Conv_Rate</li>
-                            <li>New_User_Bot</li>
-                            <li>High_Security</li>
-                            <li>Speeder (RID+PID only)</li>
-                            <li>High_LOI (RID+PID only)</li>
-                            <li>High_RR</li>
-                          </ul>
-                        </li>
-                        <li>Three pivot sheets summarizing results:
-                          <ul>
-                            <li>"Flags Pivot (Priority)" - Using final observation based on priority order</li>
-                            <li>"Flags Pivot (Multi)" - Shows counts for each check condition by supplier:</li>
-                            <li>"Pivot EntryDate x Flags" - Daily trend of flags by observation type</li>
+                            <li>"Flags Pivot (Multi)" - Shows counts for each check condition by supplier</li>
+                            <li>"Flags Pivot (Priority)" - Uses single observation based on priority order. If a record qualifies multiple checks, <i>only the later check (in the above listed checks order) is noted</i></li>
+                            <li>"Pivot EntryDate x Supplier" - Daily counts of entries by supplier</li>
+                            <li>"Pivot EntryDate x Flags" - Daily counts of flags by observation type</li>
                           </ul>
                         </li>
                       </ul>
