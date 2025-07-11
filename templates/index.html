@@ -336,8 +336,24 @@
                     </li>
                     <li style="margin-top:8px;"><b>Output Report:</b>
                       <ul>
-                        <li>New column "Observation" added at the end showing observation for each PID.</li>
-                        <li>Includes an Observation Pivot sheet summarizing counts of each unique observation by supplier.</li>                        
+                        <li>"Observation" column shows final/latest matching check (as before).</li>
+                        <li>Six additional columns show all matching checks (True = matched, blank = not matched):
+                          <ul>
+                            <li>Poor_Conv_Rate</li>
+                            <li>New_User_Bot</li>
+                            <li>High_Security</li>
+                            <li>Speeder (RID+PID only)</li>
+                            <li>High_LOI (RID+PID only)</li>
+                            <li>High_RR</li>
+                          </ul>
+                        </li>
+                        <li>Three pivot sheets summarizing results:
+                          <ul>
+                            <li>"Flags Pivot (Priority)" - Using final observation based on priority order</li>
+                            <li>"Flags Pivot (Multi)" - Shows counts for each check condition by supplier:</li>
+                            <li>"Pivot EntryDate x Flags" - Daily trend of flags by observation type</li>
+                          </ul>
+                        </li>
                       </ul>
                     </li>
                     <li style="margin-top:8px;"><b>Validation:</b>

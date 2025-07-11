@@ -2,6 +2,9 @@
 import pandas as pd
 from datetime import datetime
 import os
+from openpyxl.styles import PatternFill, Font
+from openpyxl.formatting.rule import ColorScaleRule
+
 # openpyxl is used by pandas for writing .xlsx files, ensure it's in requirements.txt
 
 def read_rid_file_from_stream(file_stream):
@@ -22,10 +25,148 @@ def read_metrics_file_from_stream(file_stream):
         df['pid'] = df['pid'].astype(str).str.strip()
     return df
 
+def get_formatting_ranges(worksheet, header, data_rows, total_column=None):
+    """Helper function to calculate formatting ranges and exclusions."""
+    exclude_cols = [1]  # First column always excluded
+    last_data_row = data_rows - 1  # Exclude Column Total row
+    
+    try:
+        # Exclude -n/a- column if present
+        if '-n/a-' in header:
+            exclude_cols.append(header.index('-n/a-') + 1)
+        
+        # Exclude total columns if present
+        if total_column and total_column in header:
+            exclude_cols.append(header.index(total_column) + 1)
+        
+    except ValueError:
+        pass  # Column not found
+    
+    return {
+        'exclude_cols': exclude_cols,
+        'last_data_row': last_data_row
+    }
+
+def apply_conditional_formatting(worksheet, start_col, end_col, data_rows, exclude_cols=None, total_rows=None):
+    """Apply conditional formatting to specified range."""
+    if exclude_cols is None:
+        exclude_cols = []
+    
+    # Create color scale rule
+    color_scale_rule = ColorScaleRule(
+        start_type='num',
+        start_value=0,
+        start_color='FFFFFF',  # White
+        end_type='num',
+        end_value=total_rows,  # Total rows in Combined Data
+        end_color='f82b1b'    # Specified red
+    )
+    
+    # Apply to each column except excluded ones
+    for col in range(start_col, end_col + 1):
+        if col not in exclude_cols:
+            col_letter = worksheet.cell(row=1, column=col).column_letter
+            cell_range = f"{col_letter}2:{col_letter}{data_rows}"
+            worksheet.conditional_formatting.add(cell_range, color_scale_rule)
+
+def add_check_results_pivot(writer, df_merged):
+    """Add pivot table showing all check flags by supplier."""
+    workbook = writer.book
+    check_columns = [
+        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
+        "Speeder", "High_LOI", "High_RR"
+    ]
+    
+    # Create pivot for check results
+    ws_pivot = workbook.create_sheet('Flags Pivot (Multi)')
+    
+    # Calculate counts by supplier
+    supplier_stats = []
+    for supplier in df_merged['supplier_bu'].unique():
+        supplier_df = df_merged[df_merged['supplier_bu'] == supplier]
+        
+        # Count rows with any True flag
+        has_any_flag = supplier_df[check_columns].any(axis=1)
+        total_flagged = has_any_flag.sum()
+        
+        # Count rows with no flags (true -n/a- count)
+        no_flags = ~has_any_flag
+        na_count = no_flags.sum()
+        
+        # Get individual flag counts
+        flag_counts = supplier_df[check_columns].sum()
+        
+        stats = {
+            'supplier_bu': supplier,
+            '-n/a-': na_count,
+            **flag_counts.to_dict(),
+            'Total_Flagged': total_flagged
+        }
+        supplier_stats.append(stats)
+    
+    pivot_df = pd.DataFrame(supplier_stats)
+    pivot_df = pivot_df.sort_values('Total_Flagged', ascending=False)
+    
+    # Add column totals with proper supplier_bu value
+    totals = pd.DataFrame([{
+        'supplier_bu': 'Column Total',
+        '-n/a-': pivot_df['-n/a-'].sum(),
+        **{col: pivot_df[col].sum() for col in check_columns},
+        'Total_Flagged': pivot_df['Total_Flagged'].sum()
+    }])
+    pivot_df = pd.concat([pivot_df, totals], ignore_index=True)
+    
+    # Arrange columns in desired order:
+    # 1. supplier_bu first
+    # 2. -n/a- second
+    # 3. check columns sorted by total count
+    # 4. Total_Flagged last
+    check_totals = pivot_df[check_columns].sum()
+    sorted_check_cols = sorted(check_columns, key=lambda x: check_totals[x], reverse=True)
+    
+    header = ['supplier_bu', '-n/a-'] + sorted_check_cols + ['Total_Flagged']
+    
+    # Write to Excel with formatting
+    ws_pivot.append(header)
+    
+    # Write data rows
+    for _, row in pivot_df.iterrows():
+        ws_pivot.append([row['supplier_bu']] + [row[col] for col in header[1:]])
+    
+    # Set supplier_bu column width to 200 pixels
+    # Convert pixels to Excel column width units (approximately)
+    excel_width = 200 / 7  # Excel width units are roughly 7 pixels
+    ws_pivot.column_dimensions['A'].width = excel_width
+    
+    # Get formatting ranges
+    format_info = get_formatting_ranges(
+        ws_pivot, 
+        header=header,
+        data_rows=len(pivot_df),
+        total_column='Total_Flagged'
+    )
+    
+    # Apply conditional formatting
+    total_rows = len(df_merged)
+    apply_conditional_formatting(
+        ws_pivot,
+        start_col=2,
+        end_col=len(header),
+        data_rows=format_info['last_data_row'],
+        exclude_cols=format_info['exclude_cols'],
+        total_rows=total_rows
+    )
+    
+    # Apply existing -n/a- column formatting
+    dark_green_font = Font(color="006400")
+    for row in ws_pivot.iter_rows(min_row=2, min_col=format_info['exclude_cols'][1], max_col=format_info['exclude_cols'][1]):
+        for cell in row:
+            cell.font = dark_green_font
+    ws_pivot.cell(row=1, column=format_info['exclude_cols'][1]).font = dark_green_font
+
 def add_pivot_and_format(writer, df_merged):
     """
-    Adds a pivot table sheet to the Excel workbook and applies basic formatting.
-    This function is adapted from the original MPpro.py.
+    Adds pivot tables to the Excel workbook and applies basic formatting.
     """
     workbook = writer.book
     
@@ -100,7 +241,7 @@ def add_pivot_and_format(writer, df_merged):
         pivot = pivot[sorted_obs_cols]
 
         # Write pivot table to new sheet
-        ws_pivot = workbook.create_sheet('Observation Pivot')
+        ws_pivot = workbook.create_sheet('Flags Pivot (Priority)')
         
         # Write header (supplier_bu and then pivot columns)
         header = ['supplier_bu'] + list(pivot.columns)
@@ -110,8 +251,32 @@ def add_pivot_and_format(writer, df_merged):
         for supplier_bu_index, row_data in pivot.iterrows():
             ws_pivot.append([supplier_bu_index] + list(row_data.values))
 
+        # Set supplier_bu column width to 200 pixels
+        excel_width = 200 / 7  # Excel width units are roughly 7 pixels
+        ws_pivot.column_dimensions['A'].width = excel_width
+
+        # Calculate columns to exclude from conditional formatting
+        exclude_cols = [1]  # First column (supplier_bu)
+        try:
+            if '-n/a-' in header:
+                exclude_cols.append(header.index('-n/a-') + 1)
+            if 'Row Total' in header:
+                exclude_cols.append(header.index('Row Total') + 1)
+        except ValueError:
+            pass  # Column not present
+        
+        # Apply conditional formatting
+        total_rows = len(df_merged)  # Get total rows from Combined Data
+        apply_conditional_formatting(
+            ws_pivot,
+            start_col=2,
+            end_col=len(header),
+            data_rows=len(pivot),
+            exclude_cols=exclude_cols,
+            total_rows=total_rows
+        )
+
         # --- Style "-n/a-" column in dark green ---
-        from openpyxl.styles import Font
         dark_green_font = Font(color="006400")  # Hex for dark green
 
         # Find the column index for "-n/a-"
@@ -140,12 +305,61 @@ def add_pivot_and_format(writer, df_merged):
                 .fillna(0)
                 .astype(int)
             )
+            
+            # Sort index by date (ascending)
+            pivot_entrydate_supplier = pivot_entrydate_supplier.sort_index()
+            
+            # Add row totals
+            pivot_entrydate_supplier['Row Total'] = pivot_entrydate_supplier.sum(axis=1)
+            
+            # Add column totals
+            col_totals = pivot_entrydate_supplier.sum()
+            col_totals.name = 'Column Total'
+            pivot_entrydate_supplier = pd.concat([pivot_entrydate_supplier, pd.DataFrame([col_totals], index=['Column Total'])])
+            
+            # Sort columns by total count (highest first) but keep Row Total last
+            cols = list(pivot_entrydate_supplier.columns)
+            if 'Row Total' in cols:
+                cols.remove('Row Total')
+            col_totals = pivot_entrydate_supplier[cols].sum()
+            sorted_cols = col_totals.sort_values(ascending=False).index
+            sorted_cols = list(sorted_cols) + ['Row Total']
+            pivot_entrydate_supplier = pivot_entrydate_supplier[sorted_cols]
+
             ws_pivot1 = workbook.create_sheet('Pivot EntryDate x Supplier')
             # Write header
-            ws_pivot1.append(['entrydate'] + list(pivot_entrydate_supplier.columns))
+            header = ['entrydate'] + list(pivot_entrydate_supplier.columns)
+            ws_pivot1.append(header)
+            
             # Write data rows
-            for idx, row in pivot_entrydate_supplier.iterrows():
-                ws_pivot1.append([idx] + list(row.values))
+            for idx, row_data in pivot_entrydate_supplier.iterrows():
+                ws_pivot1.append([idx] + list(row_data.values))
+
+            # Set entrydate column width to 100 pixels
+            excel_width = 100 / 7  # Excel width units are roughly 7 pixels
+            ws_pivot1.column_dimensions['A'].width = excel_width
+
+            # Apply conditional formatting
+            total_rows = len(df_merged)  # Get total rows from Combined Data
+            
+            # Calculate columns to exclude from conditional formatting
+            exclude_cols = [1]  # First column (entrydate)
+            try:
+                # Exclude Row Total column if present
+                if 'Row Total' in header:
+                    exclude_cols.append(header.index('Row Total') + 1)
+            except ValueError:
+                pass
+
+            # Apply conditional formatting only up to the last data row (exclude Column Total row)
+            apply_conditional_formatting(
+                ws_pivot1,
+                start_col=2,
+                end_col=len(header),
+                data_rows=len(pivot_entrydate_supplier),  # One less than before to exclude Column Total
+                exclude_cols=exclude_cols,
+                total_rows=total_rows
+            )
 
         # 2. Pivot: entrydate_only vs Observation
         if 'entrydate_only' in df_merged.columns and 'Observation' in df_merged.columns:
@@ -157,12 +371,66 @@ def add_pivot_and_format(writer, df_merged):
                 .fillna(0)
                 .astype(int)
             )
-            ws_pivot2 = workbook.create_sheet('Pivot EntryDate x Observation')
-            # Write header
-            ws_pivot2.append(['entrydate'] + list(pivot_entrydate_obs.columns))
+            
+            # Sort index by date (ascending)
+            pivot_entrydate_obs = pivot_entrydate_obs.sort_index()
+            
+            # Sort columns: "-n/a-" first, then others by total (highest first)
+            cols = list(pivot_entrydate_obs.columns)
+            sorted_cols = []
+            
+            # Add -n/a- first if it exists
+            if '-n/a-' in cols:
+                sorted_cols.append('-n/a-')
+                cols.remove('-n/a-')
+            
+            # Sort remaining columns by total
+            col_totals = pivot_entrydate_obs[cols].sum()
+            remaining_cols = col_totals.sort_values(ascending=False).index
+            sorted_cols.extend(remaining_cols)
+            sorted_cols.append('Row Total')
+            
+            # Reorder columns
+            pivot_entrydate_obs = pivot_entrydate_obs[sorted_cols]
+
+            ws_pivot2 = workbook.create_sheet('Pivot EntryDate x Flags')
+            # Write header and apply formatting
+            header = ['entrydate'] + list(pivot_entrydate_obs.columns)
+            ws_pivot2.append(header)
+            
             # Write data rows
             for idx, row in pivot_entrydate_obs.iterrows():
                 ws_pivot2.append([idx] + list(row.values))
+            
+            # Set entrydate column width to 100 pixels
+            excel_width = 100 / 7  # Excel width units are roughly 7 pixels
+            ws_pivot2.column_dimensions['A'].width = excel_width
+
+            # Calculate columns to exclude
+            na_col_idx = header.index('-n/a-') + 1 if '-n/a-' in header else None
+            exclude_cols = [1]  # First column (entrydate)
+            if na_col_idx:
+                exclude_cols.append(na_col_idx)
+            
+            # Apply conditional formatting
+            total_rows = len(df_merged)  # Get total rows from Combined Data
+            apply_conditional_formatting(
+                ws_pivot2,
+                start_col=2,
+                end_col=len(header),
+                data_rows=len(pivot_entrydate_obs) + 1,
+                exclude_cols=exclude_cols,
+                total_rows=total_rows
+            )
+            
+            # Apply existing -n/a- formatting if present
+            if '-n/a-' in pivot_entrydate_obs.columns:
+                na_col_idx = list(pivot_entrydate_obs.columns).index('-n/a-') + 2
+                dark_green_font = Font(color="006400")
+                for row in ws_pivot2.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx):
+                    for cell in row:
+                        cell.font = dark_green_font
+                ws_pivot2.cell(row=1, column=na_col_idx).font = dark_green_font
 
     except Exception as e:
         print(f"Error creating pivot table: {e}")
@@ -211,54 +479,18 @@ def generate_survey_report(
     if process_status_26_only and 'client_responsestatusid' in merged_df.columns:
         merged_df = merged_df[merged_df['client_responsestatusid'].astype(str) == '26'].copy()
 
-    # --- Observation Logic (from original MPpro.py) ---
-    # Dates: Convert to datetime objects if they are not already. Assuming standard date formats.
-    # Pandas might auto-convert if excel cells are date formatted. If not, explicit conversion is needed.
-    # For robustness, let's attempt conversion and handle potential errors.
-    try:
-        merged_df["first_entry_date_time"] = pd.to_datetime(merged_df.get("first_entry_date_time"), errors='coerce')
-        merged_df["last_entry_date_time"] = pd.to_datetime(merged_df.get("last_entry_date_time"), errors='coerce')
-    except Exception: # pragma: no cover
-        # If date columns are not critical for an observation or already handled by .get(), this can be pass
-        # Otherwise, raise an error or log a warning
-        print("Warning: Could not parse date columns 'first_entry_date' or 'last_entry_date'.")
-
-    # Set default value
-    merged_df["Observation"] = "-n/a-"
-
-    # 1. Poor Conversion Rate (<conversion_rate_threshold%)
-    mask_poor_conversion = merged_df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
-    merged_df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
-
-    # 2. New User (bot?) configurable by use_datetime_for_newuser
-    if use_datetime_for_newuser:
-        # Use *_date_time columns
-        mask_new_user = (merged_df["first_entry_date_time"] == merged_df["last_entry_date_time"]) & \
-                        (merged_df["first_entry_date_time"].notna()) & \
-                        (merged_df["last_entry_date_time"].notna())
-    else:
-        # Use *_date columns (compare as string, or convert to date if needed)
-        first_date = merged_df.get("first_entry_date")
-        last_date = merged_df.get("last_entry_date")
-        mask_new_user = (first_date == last_date) & first_date.notna() & last_date.notna()
-    merged_df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
-
-    # 3. High Security Terms (sum_f_and_g_column / total_system_entrants > security_terms_threshold%)
-    mask_high_security = (merged_df["total_system_entrants"] > 0) & \
-                         ((merged_df["sum_f_and_g_column"] / merged_df["total_system_entrants"]) > (security_terms_threshold / 100.0))
-    merged_df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
-
-    # 4. Speeder (session_loi < actual_loi / speeder_multiplier)
-    mask_speeder = merged_df["session_loi"] < (actual_loi / speeder_multiplier)
-    merged_df.loc[mask_speeder.fillna(False), "Observation"] = "Speeder"
-
-    # 5. High LOI, Distracted (session_loi > actual_loi * high_loi_multiplier)
-    mask_high_loi = merged_df["session_loi"] > (actual_loi * high_loi_multiplier)
-    merged_df.loc[mask_high_loi.fillna(False), "Observation"] = "High LOI, Distracted"
-
-    # 6. High RR% (negative_recs_rate > negative_recs_rate_threshold%)
-    mask_high_rr = merged_df["negative_recs_rate"] > (negative_recs_rate_threshold / 100.0)
-    merged_df.loc[mask_high_rr.fillna(False), "Observation"] = "High RR%"
+    # Apply observation logic and add check columns
+    merged_df = apply_pid_observation_logic(
+        merged_df,
+        actual_loi=actual_loi,
+        conversion_rate_threshold=conversion_rate_threshold,
+        security_terms_threshold=security_terms_threshold,
+        speeder_multiplier=speeder_multiplier,
+        high_loi_multiplier=high_loi_multiplier,
+        negative_recs_rate_threshold=negative_recs_rate_threshold,
+        session_loi_checks=True,
+        use_datetime_for_newuser=use_datetime_for_newuser
+    )
 
     # Remove blank columns (all values are NaN or empty) before writing to Excel
     merged_df = merged_df.dropna(axis=1, how='all')
@@ -271,8 +503,9 @@ def generate_survey_report(
 
     with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
         merged_df.to_excel(writer, sheet_name='Combined Data', index=False)
-        add_pivot_and_format(writer, merged_df) # Call the pivot table function
-
+        add_check_results_pivot(writer, merged_df)  # First create multi-check pivot
+        add_pivot_and_format(writer, merged_df)     # Then create other pivots
+    
     return output_path
 
 def generate_pid_only_report(
@@ -378,32 +611,52 @@ def apply_pid_observation_logic(
         pass
     # Set default value
     df["Observation"] = "-n/a-"
-    # 1. Poor Conversion Rate (<conversion_rate_threshold%)
+    
+    # Initialize check columns as False (not blank)
+    check_columns = [
+        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
+        "Speeder", "High_LOI", "High_RR"
+    ]
+    
+    for col in check_columns:
+        df[col] = False
+    
+    # 1. Poor Conversion Rate
     mask_poor_conversion = df["system_conversion_rate"] < (conversion_rate_threshold / 100.0)
+    df.loc[mask_poor_conversion.fillna(False), "Poor_Conv_Rate"] = True
     df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
-    # 2. New User (bot?) - Use correct columns based on use_datetime_for_newuser
+
+    # 2. New User (bot?)
     if use_datetime_for_newuser:
         mask_new_user = (df["first_entry_date_time"] == df["last_entry_date_time"]) & \
-                        (df["first_entry_date_time"].notna()) & \
-                        (df["last_entry_date_time"].notna())
+                       (df["first_entry_date_time"].notna()) & \
+                       (df["last_entry_date_time"].notna())
     else:
-        # Use *_date columns
         mask_new_user = (df["first_entry_date"] == df["last_entry_date"]) & \
-                        (df["first_entry_date"].notna()) & \
-                        (df["last_entry_date"].notna())
+                       (df["first_entry_date"].notna()) & \
+                       (df["last_entry_date"].notna())
+    df.loc[mask_new_user.fillna(False), "New_User_Bot"] = True
     df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
-    # 3. High Security Terms (sum_f_and_g_column / total_system_entrants > security_terms_threshold%)
+
+    # 3. High Security Terms
     mask_high_security = (df["total_system_entrants"] > 0) & \
-                         ((df["sum_f_and_g_column"] / df["total_system_entrants"]) > (security_terms_threshold / 100.0))
+                       ((df["sum_f_and_g_column"] / df["total_system_entrants"]) > (security_terms_threshold / 100.0))
+    df.loc[mask_high_security.fillna(False), "High_Security"] = True
     df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
+
+    # 4. Speeder & 5. High LOI
     if session_loi_checks and actual_loi is not None and speeder_multiplier and high_loi_multiplier:
-        # 4. Speeder (session_loi < actual_loi / speeder_multiplier)
         mask_speeder = df["session_loi"] < (actual_loi / speeder_multiplier)
+        df.loc[mask_speeder.fillna(False), "Speeder"] = True
         df.loc[mask_speeder.fillna(False), "Observation"] = "Speeder"
-        # 5. High LOI, Distracted (session_loi > actual_loi * high_loi_multiplier)
+
         mask_high_loi = df["session_loi"] > (actual_loi * high_loi_multiplier)
+        df.loc[mask_high_loi.fillna(False), "High_LOI"] = True
         df.loc[mask_high_loi.fillna(False), "Observation"] = "High LOI, Distracted"
-    # 6. High RR% (negative_recs_rate > negative_recs_rate_threshold%)
+
+    # 6. High RR%
     mask_high_rr = df["negative_recs_rate"] > (negative_recs_rate_threshold / 100.0)
+    df.loc[mask_high_rr.fillna(False), "High_RR"] = True
     df.loc[mask_high_rr.fillna(False), "Observation"] = "High RR%"
+    
     return df
