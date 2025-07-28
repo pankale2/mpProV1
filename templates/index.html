@@ -517,7 +517,11 @@
               </div>
             </div>
           </div>
-          <div style="display: flex; justify-content: right; margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+            <!-- Shutdown button for EXE mode -->
+            <button type="button" id="shutdown-btn" onclick="shutdownApp()" style="background-color: #dc3545; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; display: none;">
+              Exit Application
+            </button>
             <input type="submit" id="process-btn" value="Process Files & Download Report" style="font-size: 1.3rem; padding: 18px 60px; width: 60%; max-width: 500px; font-weight: bold; letter-spacing: 1px;">
           </div>
         </form>
@@ -664,70 +668,58 @@
 
           // Update how ridData is processed
           ridFileInput.addEventListener('change', async function(e) {
-            if (this.files.length > 0) {
-                try {
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const text = e.target.result;
-                        const lines = text.split('\n');
-                        if (lines.length > 1) {
-                            // Parse CSV properly to get survey IDs
-                            const headers = lines[0].toLowerCase().split(',');
-                            const surveyIdIndex = headers.indexOf('surveyid');
-                            let surveyIds = {};
-                            
-                            if (surveyIdIndex !== -1) {
-                                for (let i = 1; i < lines.length; i++) {
-                                    const cols = lines[i].split(',');
-                                    if (cols[surveyIdIndex]) {
-                                        const sid = cols[surveyIdIndex].trim();
-                                        surveyIds[sid] = (surveyIds[sid] || 0) + 1;
-                                    }
-                                }
-                                
-                                // Sort survey IDs by count
-                                const sortedPairs = Object.entries(surveyIds)
-                                    .sort(([,a], [,b]) => b - a)
-                                    .slice(0, 3);
-
-                                // Create links with tooltips showing count info
-                                const linksHtml = sortedPairs.map(([sid, count], index) => {
-                                    const tooltipText = index === 0 ? 
-                                        `Survey with most RIDs (${count})` :
-                                        index === 1 ? 
-                                            `Survey with 2nd most RIDs (${count})` :
-                                            `Survey with 3rd most RIDs (${count})`;
-                                    
-                                    return `<a href="https://www.samplicio.us/fulcrum/next/surveys/${sid}/reports" 
-                                              target="_blank" 
-                                              title="${tooltipText}">${sid}</a>`;
-                                }).join(', ');
-                                
-                                document.getElementById('surveyid-links').innerHTML = 
-                                    sortedPairs.length ? 'Marketplace: ' + linksHtml : 'Marketplace';
-                            }
-                            
-                            ridData = lines;
-                            showLoiGroup();
-                            updateProcessBtnState();
-                        }
-                    };
-                    reader.readAsText(this.files[0]);
-                } catch (error) {
-                    console.error('Error reading RID file:', error);
-                    ridData = null;
-                    showLoiGroup();
-                    updateProcessBtnState();
-                    document.getElementById('surveyid-links').innerHTML = 'Marketplace';
-                }
-            } else {
-                ridData = null;
-                showLoiGroup();
-                updateProcessBtnState();
-                document.getElementById('surveyid-links').innerHTML = 'Marketplace';
-            }
+  if (this.files.length > 0) {
+    try {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        // Use SheetJS to parse CSV robustly
+        const workbook = XLSX.read(text, {type: 'string'});
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
+        // Find surveyid column (case-insensitive)
+        let surveyidKey = null;
+        if (json.length > 0) {
+          const keys = Object.keys(json[0]);
+          surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
+        }
+        let surveyIds = {};
+        if (surveyidKey) {
+          json.forEach(row => {
+            const sid = (row[surveyidKey] || '').trim();
+            if (sid) surveyIds[sid] = (surveyIds[sid] || 0) + 1;
           });
-
+          const sortedPairs = Object.entries(surveyIds)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 3);
+          const linksHtml = sortedPairs.map(([sid, count], index) => {
+            const tooltipText = index === 0 ? 
+              `Survey with most RIDs (${count})` :
+              index === 1 ? 
+                `Survey with 2nd most RIDs (${count})` :
+                `Survey with 3rd most RIDs (${count})`;
+            return `<a href="https://www.samplicio.us/fulcrum/next/surveys/${sid}/reports" 
+                      target="_blank" 
+                      title="${tooltipText}">${sid}</a>`;
+          }).join(', ');
+          document.getElementById('surveyid-links').innerHTML = 
+            sortedPairs.length ? 'Marketplace: ' + linksHtml : 'Marketplace';
+        } else {
+          document.getElementById('surveyid-links').innerHTML = 'Marketplace';
+        }
+        ridData = json;
+        showLoiGroup();
+        updateProcessBtnState();
+      };
+      reader.readAsText(this.files[0]);
+    } catch (error) {
+      document.getElementById('surveyid-links').innerHTML = 'Marketplace';
+    }
+  } else {
+    document.getElementById('surveyid-links').innerHTML = 'Marketplace';
+  }
+});
           // Add metrics file handler after ridFileInput handler:
           metricsFileInput.addEventListener('change', function(e) {
               if (this.files.length > 0) {
@@ -956,6 +948,91 @@
         dateModeSwitch.addEventListener('change', function() {
           syncDateModeSwitchAndHidden();
           saveFormState();
+        });
+
+        // Show shutdown button only in EXE mode
+          window.addEventListener('DOMContentLoaded', function() {
+            // Check if running as EXE (window title or other indicators)
+            const isEXE = window.navigator.userAgent.includes('Electron') || 
+                         window.location.protocol === 'file:' ||
+                         window.location.hostname === '127.0.0.1';
+            
+            if (isEXE) {
+              document.getElementById('shutdown-btn').style.display = 'block';
+            }
+          });
+          
+          // Shutdown function
+          function shutdownApp() {
+            if (confirm('Are you sure you want to exit the application?')) {
+              fetch('/shutdown', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                }
+              }).then(() => {
+                alert('Application is shutting down. You can close this browser window.');
+                window.close();
+              }).catch(() => {
+                alert('Application is shutting down. You can close this browser window.');
+                window.close();
+              });
+            }
+          }
+
+        // Prevent default form submission and use AJAX to handle responses.
+        document.getElementById('main-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            document.getElementById('processing-overlay').style.display = 'flex';
+            const formData = new FormData(this);
+
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    // SUCCESS: Status is 200-299. This should be a file download.
+                    const disposition = response.headers.get('Content-Disposition');
+                    if (disposition && disposition.includes('attachment')) {
+                        return response.blob().then(blob => {
+                            const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
+                            const filename = filenameMatch ? filenameMatch[1] : 'report.xlsx';
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.style.display = 'none';
+                            a.href = url;
+                            a.download = filename;
+                            document.body.appendChild(a);
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                            a.remove();
+                            
+                            document.getElementById('processing-overlay').style.display = 'none';
+                            const flashContainer = document.querySelector('.flash-messages') || document.createElement('ul');
+                            if (!document.querySelector('.flash-messages')) {
+                                flashContainer.className = 'flash-messages';
+                                document.querySelector('.container').prepend(flashContainer);
+                            }
+                            flashContainer.innerHTML = `<li class="success">Processing complete! Your download has started.</li>`;
+                        });
+                    } else {
+                        // Unexpected 200 OK without a file. Treat as an error and reload.
+                        alert('An unexpected response was received from the server. The page will now reload.');
+                        window.location.reload();
+                    }
+                } else {
+                    // ERROR: Status is not OK (e.g., 400 or 500).
+                    // The backend has flashed the error message to the session.
+                    // Reload the page to display it.
+                    window.location.reload();
+                }
+            })
+            .catch((error) => {
+                console.error('Network or script error:', error);
+                alert('A critical network error occurred. Please check your connection and try again.');
+                document.getElementById('processing-overlay').style.display = 'none';
+            });
         });
         </script>
         <!-- SheetJS for Excel parsing in browser -->

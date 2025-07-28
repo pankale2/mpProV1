@@ -9,21 +9,63 @@ from openpyxl.formatting.rule import ColorScaleRule
 
 def read_rid_file_from_stream(file_stream):
     """Reads the RID lookup CSV file from a file stream."""
-    df = pd.read_csv(file_stream)
-    df.columns = df.columns.str.strip().str.lower()
-    return df
+    try:
+        df = pd.read_csv(file_stream)
+        df.columns = df.columns.str.strip().str.lower()
+        
+        # Validate critical columns exist
+        if df.empty:
+            raise ValueError("RID file appears to be empty. Please check your CSV file.")
+        
+        # Check for basic expected columns
+        expected_cols = ['pid']
+        missing_cols = [col for col in expected_cols if col not in df.columns]
+        if missing_cols:
+            available_cols = ", ".join(df.columns[:5])  # Show first 5 columns
+            raise ValueError(f"RID file missing required columns: {missing_cols}. Available columns: {available_cols}...")
+            
+        return df
+    except pd.errors.EmptyDataError:
+        raise ValueError("RID file is empty or contains no valid data.")
+    except pd.errors.ParserError as e:
+        raise ValueError(f"RID file format error: Could not parse CSV file. Please ensure it's a valid CSV format. Details: {str(e)}")
+    except UnicodeDecodeError:
+        raise ValueError("RID file encoding error: Please ensure the CSV file is saved with UTF-8 encoding.")
+    except Exception as e:
+        raise ValueError(f"Error reading RID file: {str(e)}")
 
 def read_metrics_file_from_stream(file_stream):
     """Reads the Marketplace Metrics Excel file from a file stream."""
-    df = pd.read_excel(
-        file_stream,
-        sheet_name='Marketplace Metrics by PID',
-        skiprows=5
-    )
-    df.columns = df.columns.str.strip().str.lower()
-    if 'pid' in df.columns:
-        df['pid'] = df['pid'].astype(str).str.strip()
-    return df
+    try:
+        df = pd.read_excel(
+            file_stream,
+            sheet_name='Marketplace Metrics by PID',
+            skiprows=5
+        )
+        df.columns = df.columns.str.strip().str.lower()
+        
+        # Validate file structure
+        if df.empty:
+            raise ValueError("PID Metrics file appears to be empty after skipping header rows. Please check your Excel file structure.")
+            
+        # Check for critical columns
+        if 'pid' not in df.columns:
+            available_cols = ", ".join(df.columns[:5])  # Show first 5 columns
+            raise ValueError(f"PID Metrics file missing 'PID' column. Available columns: {available_cols}...")
+            
+        if 'pid' in df.columns:
+            df['pid'] = df['pid'].astype(str).str.strip()
+        return df
+    except FileNotFoundError:
+        raise ValueError("Could not find the specified sheet 'Marketplace Metrics by PID' in the Excel file.")
+    except ValueError as ve:
+        if "Worksheet named" in str(ve):
+            raise ValueError("Excel file must contain a sheet named 'Marketplace Metrics by PID'. Please check your file format.")
+        raise ve  # Re-raise ValueError with original message
+    except Exception as e:
+        if "xlrd" in str(e) or "openpyxl" in str(e):
+            raise ValueError("Excel file format error: Please ensure you're uploading a valid .xlsx file exported from SSRS.")
+        raise ValueError(f"Error reading PID Metrics file: {str(e)}")
 
 def get_formatting_ranges(header, data_rows, total_column=None, has_col_total_row=False):
     """
@@ -47,6 +89,9 @@ def apply_conditional_formatting(worksheet, start_col, end_col, data_rows, exclu
     """Apply conditional formatting to specified range."""
     if exclude_cols is None:
         exclude_cols = []
+    # Guard: skip if no data rows
+    if data_rows < 2:
+        return
     color_scale_rule = ColorScaleRule(
         start_type='num',
         start_value=0,
@@ -59,7 +104,15 @@ def apply_conditional_formatting(worksheet, start_col, end_col, data_rows, exclu
         if col not in exclude_cols:
             col_letter = worksheet.cell(row=1, column=col).column_letter
             cell_range = f"{col_letter}2:{col_letter}{data_rows}"
-            worksheet.conditional_formatting.add(cell_range, color_scale_rule)
+            # Guard: skip if cell_range is not valid
+            if int(data_rows) < 2:
+                continue
+            try:
+                worksheet.conditional_formatting.add(cell_range, color_scale_rule)
+            except Exception as e:
+                # Log and skip this column if openpyxl fails
+                print(f"Conditional formatting skipped for {cell_range}: {e}")
+                continue
 
 def apply_na_column_formatting(worksheet, header):
     """Apply dark green formatting to -n/a- column if present."""
@@ -171,10 +224,8 @@ def add_check_results_pivot(writer, df_merged):
     
     # Apply existing -n/a- column formatting
     dark_green_font = Font(color="006400")
-    for row in ws_pivot.iter_rows(min_row=2, min_col=exclude_cols[1], max_col=exclude_cols[1]):
-        for cell in row:
-            cell.font = dark_green_font
-    ws_pivot.cell(row=1, column=exclude_cols[1]).font = dark_green_font
+    # Fix: Check if -n/a- column exists and use apply_na_column_formatting instead
+    apply_na_column_formatting(ws_pivot, header)
 
 def add_pivot_and_format(writer, df_merged):
     """
@@ -190,8 +241,7 @@ def add_pivot_and_format(writer, df_merged):
 
     # --- Create Pivot Table ---
     if 'supplier_bu' not in df_merged.columns or 'Observation' not in df_merged.columns:
-        print("Warning: 'supplier_bu' or 'Observation' column not found. Skipping pivot table.")
-        return
+        raise ValueError("Required columns 'supplier_bu' or 'Observation' not found in processed data. This may indicate a problem with the input files.")
 
     try:
         pivot = (
@@ -204,8 +254,7 @@ def add_pivot_and_format(writer, df_merged):
         )
 
         if pivot.empty:
-            print("Warning: Pivot table is empty. Skipping advanced formatting and sheet creation.")
-            return
+            raise ValueError("No data available for pivot table generation. Please check that your input files contain valid data.")
 
         # Add row totals
         pivot['Row Total'] = pivot.sum(axis=1)
@@ -401,12 +450,8 @@ def add_pivot_and_format(writer, df_merged):
 
     except Exception as e:
         print(f"Error creating pivot table: {e}")
-        # Optionally, write a small error message to the sheet if it exists
-        try:
-            ws_error_pivot = workbook.create_sheet('Pivot_Error')
-            ws_error_pivot.append([f"Could not generate pivot table: {e}"])
-        except: # pragma: no cover
-            pass # If sheet creation also fails
+        # Return early to prevent further errors
+        return
 
 def generate_survey_report(
     rid_file_stream, metrics_file_stream, actual_loi, output_dir,
@@ -421,375 +466,367 @@ def generate_survey_report(
     """
     Processes the survey files and generates an Excel report with observations and a pivot table.
     """
-    if not (3 <= actual_loi <= 100):
-        raise ValueError("Survey Actual LOI must be between 3 and 100.")
+    try:
+        if not (3 <= actual_loi <= 100):
+            raise ValueError("Survey Actual LOI must be between 3 and 100.")
 
-    rid_df = read_rid_file_from_stream(rid_file_stream)
-    metrics_df = read_metrics_file_from_stream(metrics_file_stream)
+        # Read files with enhanced error handling
+        try:
+            rid_df = read_rid_file_from_stream(rid_file_stream)
+        except Exception as e:
+            raise ValueError(f"RID file error: {str(e)}")
+            
+        try:
+            metrics_df = read_metrics_file_from_stream(metrics_file_stream)
+        except Exception as e:
+            raise ValueError(f"PID Metrics file error: {str(e)}")
 
-    if 'pid' not in rid_df.columns or 'pid' not in metrics_df.columns:
-        raise ValueError("Critical Error: 'pid' column not found in one or both input files. Please check column headers (e.g., 'PID', 'Pid').")
-    
-    # Ensure 'pid' columns are strings for reliable merging
-    rid_df['pid'] = rid_df['pid'].astype(str).str.strip()
-    metrics_df['pid'] = metrics_df['pid'].astype(str).str.strip()
-
-    merged_df = pd.merge(
-        rid_df,
-        metrics_df,
-        on='pid',
-        how='left',
-        indicator=False
-    )
-
-    # Filter for status=26 if requested
-    if process_status_26_only and 'client_responsestatusid' in merged_df.columns:
-        merged_df = merged_df[merged_df['client_responsestatusid'].astype(str) == '26'].copy()
-
-    # Scale system_conversion_rate and negative_recs_rate to 0-100 immediately after merging
-    if "system_conversion_rate" in merged_df.columns:
-        merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"] * 100
-    if "negative_recs_rate" in merged_df.columns:
-        merged_df["negative_recs_rate"] = merged_df["negative_recs_rate"] * 100
-
-    # Apply observation logic and add check columns
-    merged_df = apply_pid_observation_logic(
-        merged_df,
-        actual_loi=actual_loi,
-        conversion_rate_threshold=conversion_rate_threshold,
-        security_terms_threshold=security_terms_threshold,
-        speeder_multiplier=speeder_multiplier,
-        high_loi_multiplier=high_loi_multiplier,
-        negative_recs_rate_threshold=negative_recs_rate_threshold,
-        session_loi_checks=True,
-        use_datetime_for_newuser=use_datetime_for_newuser
-    )
-
-    # --- Insert High_Security criteria % calculation column ---
-    high_security_pct = (
-        merged_df["sum_f_and_g_column"] / merged_df["total_system_entrants"]
-    ).fillna(0) * 100
-    high_security_pct = high_security_pct.round(2)
-    cols = list(merged_df.columns)
-    if "system_conversion_rate" in cols:
-        idx = cols.index("system_conversion_rate") + 1
-        merged_df.insert(idx, "High_Security_Pct", high_security_pct)
-    else:
-        merged_df["High_Security_Pct"] = high_security_pct
-
-    # --- Insert first/last entry date match column ---
-    match_col = (merged_df["first_entry_date"] == merged_df["last_entry_date"])
-    if "last_entry_date" in merged_df.columns:
-        cols = list(merged_df.columns)  # Update cols list
-        idx = cols.index("last_entry_date") + 1
-        merged_df.insert(idx, "FirstLastDateMatch", match_col)
-    else:
-        merged_df["FirstLastDateMatch"] = match_col
-
-    # --- Insert first/last entry datetime match column ---
-    match_dt_col = (merged_df["first_entry_date_time"] == merged_df["last_entry_date_time"])
-    if "last_entry_date_time" in merged_df.columns:
-        cols = list(merged_df.columns)  # Update cols list again
-        idx = cols.index("last_entry_date_time") + 1
-        merged_df.insert(idx, "FirstLastDateTimeMatch", match_dt_col)
-    else:
-        merged_df["FirstLastDateTimeMatch"] = match_dt_col
-
-    # --- Round columns to 2 decimal places ---
-    if "system_conversion_rate" in merged_df.columns:
-        merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"].round(2)
-    if "negative_recs_rate" in merged_df.columns:
-        merged_df["negative_recs_rate"] = merged_df["negative_recs_rate"].round(2)
-    if "High_Security_Pct" in merged_df.columns:
-        merged_df["High_Security_Pct"] = merged_df["High_Security_Pct"].round(2)
-
-    # --- Add Flag_Count column at the end ---
-    flag_columns = [
-        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
-        "Speeder", "High_LOI", "High_RR"
-    ]
-    merged_df["Flag_Count"] = merged_df[flag_columns].sum(axis=1)
-
-    # Remove blank columns (all values are NaN or empty) before writing to Excel
-    merged_df = merged_df.dropna(axis=1, how='all')
-
-    # --- Generate Excel File ---
-    os.makedirs(output_dir, exist_ok=True) # Ensure output directory exists
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"RID-PID_Report_{timestamp}.xlsx"
-    output_path = os.path.join(output_dir, output_filename)
-
-    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-        merged_df.to_excel(writer, sheet_name='Combined Data', index=False)
-        add_pivot_and_format(writer, merged_df)     # Creates "Flags Pivot (Priority)" and time-series pivots
-        add_check_results_pivot(writer, merged_df)  # Creates "Flags Pivot (Multi)"
-
-        # Reorder sheets to match desired sequence
-        wb = writer.book
-        desired_order = [
-            "Combined Data",
-            "Flags Pivot (Priority)", 
-            "Flags Pivot (Multi)",
-            "Pivot EntryDate x Supplier",
-            "Pivot EntryDate x Flags"
-        ]
+        if 'pid' not in rid_df.columns or 'pid' not in metrics_df.columns:
+            raise ValueError("Critical Error: 'pid' column not found in one or both input files. Please check column headers (case-sensitive: should be 'PID' or 'pid').")
         
-        # Reorder existing sheets
-        existing_sheets = []
-        for sheet_name in desired_order:
-            if sheet_name in wb.sheetnames:
-                existing_sheets.append(wb[sheet_name])
+        # Enhanced merge validation
+        rid_pids = set(rid_df['pid'].astype(str).str.strip())
+        metrics_pids = set(metrics_df['pid'].astype(str).str.strip())
         
-        # Remove all sheets from workbook
-        wb._sheets.clear()
+        if len(rid_pids & metrics_pids) == 0:
+            raise ValueError("No matching PIDs found between RID and Metrics files. Please ensure both files contain the same PIDs.")
         
-        # Add sheets back in desired order
-        for sheet in existing_sheets:
-            wb._sheets.append(sheet)
+        # Ensure 'pid' columns are strings for reliable merging
+        rid_df['pid'] = rid_df['pid'].astype(str).str.strip()
+        metrics_df['pid'] = metrics_df['pid'].astype(str).str.strip()
 
-        # --- Create DenyList_Draft sheet ---
-        deny_cols = [
-            "pid", "supplierid", "name", "Observation",
-            "Poor_Conv_Rate", "New_User_Bot", "High_Security",
-            "Speeder", "High_LOI", "High_RR", "Flag_Count"
-        ]
-        # Only keep columns that exist in merged_df
-        deny_cols_present = [c for c in deny_cols if c in merged_df.columns]
-        deny_df = merged_df[deny_cols_present].copy()
+        merged_df = pd.merge(
+            rid_df,
+            metrics_df,
+            on='pid',
+            how='left',
+            indicator=False
+        )
 
-        # Rename columns first, then insert Deny Criteria
-        col_map = {
-            "pid": "PID",
-            "supplierid": "Supplier ID", 
-            "name": "Supplier Name"
-        }
-        deny_df = deny_df.rename(columns=col_map)
-        
-        # Insert "Deny Criteria" column after "Supplier Name"
-        cols_list = list(deny_df.columns)
-        if "Supplier Name" in cols_list:
-            name_idx = cols_list.index("Supplier Name")
-            deny_df.insert(name_idx + 1, "Deny Criteria", 10)
+        # Filter for status=26 if requested
+        if process_status_26_only and 'client_responsestatusid' in merged_df.columns:
+            merged_df = merged_df[merged_df['client_responsestatusid'].astype(str) == '26'].copy()
+
+        # Scale system_conversion_rate and negative_recs_rate to 0-100 immediately after merging
+        if "system_conversion_rate" in merged_df.columns:
+            merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"] * 100
+        if "negative_recs_rate" in merged_df.columns:
+            merged_df["negative_recs_rate"] = merged_df["negative_recs_rate"] * 100
+
+        # Apply observation logic and add check columns
+        merged_df = apply_pid_observation_logic(
+            merged_df,
+            actual_loi=actual_loi,
+            conversion_rate_threshold=conversion_rate_threshold,
+            security_terms_threshold=security_terms_threshold,
+            speeder_multiplier=speeder_multiplier,
+            high_loi_multiplier=high_loi_multiplier,
+            negative_recs_rate_threshold=negative_recs_rate_threshold,
+            session_loi_checks=True,
+            use_datetime_for_newuser=use_datetime_for_newuser
+        )
+
+        # --- Insert High_Security criteria % calculation column ---
+        high_security_pct = (
+            merged_df["sum_f_and_g_column"] / merged_df["total_system_entrants"]
+        ).fillna(0) * 100
+        high_security_pct = high_security_pct.round(2)
+        cols = list(merged_df.columns)
+        if "system_conversion_rate" in cols:
+            idx = cols.index("system_conversion_rate") + 1
+            merged_df.insert(idx, "High_Security_Pct", high_security_pct)
         else:
-            # Fallback: insert after second column
-            deny_df.insert(2, "Deny Criteria", 10)
+            merged_df["High_Security_Pct"] = high_security_pct
 
-        # Create the sheet and write data properly
-        deny_sheet = wb.create_sheet("DenyList_Draft")
-        
-        # Write headers
-        for col_idx, col_name in enumerate(deny_df.columns, 1):
-            deny_sheet.cell(row=1, column=col_idx, value=col_name)
-        
-        # Write data rows
-        for row_idx, row_data in enumerate(deny_df.itertuples(index=False), 2):
-            for col_idx, value in enumerate(row_data, 1):
-                deny_sheet.cell(row=row_idx, column=col_idx, value=value)
+        # --- Insert first/last entry date match column ---
+        match_col = (merged_df["first_entry_date"] == merged_df["last_entry_date"])
+        if "last_entry_date" in merged_df.columns:
+            cols = list(merged_df.columns)  # Update cols list
+            idx = cols.index("last_entry_date") + 1
+            merged_df.insert(idx, "FirstLastDateMatch", match_col)
+        else:
+            merged_df["FirstLastDateMatch"] = match_col
 
-        # Enable auto-filter and freeze first row
-        deny_sheet.auto_filter.ref = deny_sheet.dimensions
-        deny_sheet.freeze_panes = deny_sheet['A2']
-        # Set header alignment to left for Combined Data and DenyList_Draft
-        from openpyxl.styles import Alignment
-        left_align = Alignment(horizontal='left')
-        # Combined Data
-        combined_sheet = wb["Combined Data"]
-        for cell in combined_sheet[1]:
-            cell.alignment = left_align
-        # DenyList_Draft
-        for cell in deny_sheet[1]:
-            cell.alignment = left_align
-        # --- Enhanced Conditional Formatting for Combined Data ---
-        from openpyxl.formatting.rule import ColorScaleRule
-        from openpyxl.styles import Font
-        import numpy as np
+        # --- Insert Diff Days column after last_entry_date ---
+        if "first_entry_date" in merged_df.columns and "last_entry_date" in merged_df.columns:
+            # Convert to datetime if not already
+            merged_df["first_entry_date_dt"] = pd.to_datetime(merged_df["first_entry_date"], errors='coerce')
+            merged_df["last_entry_date_dt"] = pd.to_datetime(merged_df["last_entry_date"], errors='coerce')
+            diff_days = (merged_df["last_entry_date_dt"] - merged_df["first_entry_date_dt"]).dt.days
+            # Insert after last_entry_date
+            cols = list(merged_df.columns)
+            idx = cols.index("last_entry_date") + 1
+            merged_df.insert(idx, "Diff Days", diff_days)
+            # Remove temp columns
+            merged_df.drop(["first_entry_date_dt", "last_entry_date_dt"], axis=1, inplace=True)
+        else:
+            merged_df["Diff Days"] = None
 
-        header = [cell.value for cell in combined_sheet[1]]
-        n_rows = combined_sheet.max_row
+        # --- Round columns to 2 decimal places ---
+        if "system_conversion_rate" in merged_df.columns:
+            merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"].round(2)
+        if "negative_recs_rate" in merged_df.columns:
+            merged_df["negative_recs_rate"] = merged_df["negative_recs_rate"].round(2)
+        if "High_Security_Pct" in merged_df.columns:
+            merged_df["High_Security_Pct"] = merged_df["High_Security_Pct"].round(2)
 
-        # Helper to get min/max and ensure numeric
-        def get_col_min_max(col_name):
-            if col_name in merged_df.columns:
-                col_data = pd.to_numeric(merged_df[col_name], errors='coerce')
-                col_min = np.nanmin(col_data)
-                col_max = np.nanmax(col_data)
-                return col_min, col_max
-            return None, None
+        # --- Add Flag_Count column at the end ---
+        flag_columns = [
+            "Poor_Conv_Rate", "New_User_Bot", "High_Security",
+            "Speeder", "High_LOI", "High_RR"
+        ]
+        merged_df["Flag_Count"] = merged_df[flag_columns].sum(axis=1)
 
-        # Conditional formatting rules for each column
-        format_specs = {
-            # system_conversion_rate: high is good, red for low (bad), white for high (good), scale 0-100
-            "system_conversion_rate": {
-                "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": True
-            },
-            # High_Security_Pct: high is bad, red for high (bad), white for low (good), scale 0-100
-            "High_Security_Pct": {
-                "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
-            },
-            # negative_recs_rate: high is bad, red for high (bad), white for low (good), scale 0-100
-            "negative_recs_rate": {
-                "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
-            },
-            # Flag_Count: fixed scale 0-5, white for low, red for high
-            "Flag_Count": {
-                "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 5, "reverse": False
-            },
-            # client_responsestatusid: orange to pickle green
-            "client_responsestatusid": {
-                "min_color": "FFA500", "max_color": "4f9e4f", "reverse": False
-            },
-            # session_loi: 3-color scale yellow-white-yellow
-            "session_loi": {
-                "min_color": "FFFF00", "mid_color": "FFFFFF", "max_color": "FFFF00", "reverse": False, "three_color": True
-            },
-            # supplier_bu_id: sky blue to gray
-            "supplier_bu_id": {
-                "min_color": "87CEEB", "max_color": "808080", "reverse": False
-            },
-            # survey_ccpi: white to yellow
-            "survey_ccpi": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            # survey_qcpi: white to yellow
-            "survey_qcpi": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            # Total count columns: white (0) to yellow (high values)
-            "total_system_entrants": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            "total_surveys_entered": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            "total_completes": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            "total_negative_recs": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            "total_security_terms_on_marketplace_side": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            "total_security_terms_on_client_side": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            },
-            "sum_f_and_g_column": {
-                "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-            }
-        }
+        # Remove blank columns (all values are NaN or empty) before writing to Excel
+        merged_df = merged_df.dropna(axis=1, how='all')
 
-        for col_name, spec in format_specs.items():
-            if col_name in header:
-                col_idx = header.index(col_name) + 1
-                col_letter = combined_sheet.cell(row=1, column=col_idx).column_letter
-                cell_range = f"{col_letter}2:{col_letter}{n_rows}"
-                # Get min/max
-                if "min" in spec and "max" in spec:
-                    col_min, col_max = spec["min"], spec["max"]
+        # --- Generate Excel File ---
+        os.makedirs(output_dir, exist_ok=True) # Ensure output directory exists
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"RID-PID_Report_{timestamp}.xlsx"
+        output_path = os.path.join(output_dir, output_filename)
+
+        try:
+            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+                merged_df.to_excel(writer, sheet_name='Combined Data', index=False)
+                add_pivot_and_format(writer, merged_df)     # Creates "Flags Pivot (Priority)" and time-series pivots
+                add_check_results_pivot(writer, merged_df)  # Creates "Flags Pivot (Multi)"
+
+                # Reorder sheets to match desired sequence
+                wb = writer.book
+                desired_order = [
+                    "Combined Data",
+                    "Flags Pivot (Priority)", 
+                    "Flags Pivot (Multi)",
+                    "Pivot EntryDate x Supplier",
+                    "Pivot EntryDate x Flags"
+                ]
+                
+                # Reorder existing sheets
+                existing_sheets = []
+                for sheet_name in desired_order:
+                    if sheet_name in wb.sheetnames:
+                        existing_sheets.append(wb[sheet_name])
+                
+                # Remove all sheets from workbook
+                wb._sheets.clear()
+                
+                # Add sheets back in desired order
+                for sheet in existing_sheets:
+                    wb._sheets.append(sheet)
+
+                # --- Create DenyList_Draft sheet ---
+                deny_cols = [
+                    "pid", "supplierid", "name", "Observation",
+                    "Poor_Conv_Rate", "New_User_Bot", "High_Security",
+                    "Speeder", "High_LOI", "High_RR", "Flag_Count",
+                    "Diff Days"  # <-- ensure this is included for DenyList_Draft
+                ]
+                # Only keep columns that exist in merged_df
+                deny_cols_present = [c for c in deny_cols if c in merged_df.columns]
+                deny_df = merged_df[deny_cols_present].copy()
+
+                # Rename columns first, then insert Deny Criteria
+                col_map = {
+                    "pid": "PID",
+                    "supplierid": "Supplier ID", 
+                    "name": "Supplier Name"
+                }
+                deny_df = deny_df.rename(columns=col_map)
+                
+                # Insert "Deny Criteria" column after "Supplier Name"
+                cols_list = list(deny_df.columns)
+                if "Supplier Name" in cols_list:
+                    name_idx = cols_list.index("Supplier Name")
+                    deny_df.insert(name_idx + 1, "Deny Criteria", 10)
                 else:
-                    col_min, col_max = get_col_min_max(col_name)
-                    # If min==max, skip formatting
-                    if col_min is None or col_max is None or col_min == col_max:
-                        continue
-                # 3-color scale for session_loi
-                if spec.get("three_color"):
-                    col_median = np.nanmedian(pd.to_numeric(merged_df[col_name], errors='coerce'))
-                    color_rule = ColorScaleRule(
-                        start_type='num', start_value=col_min, start_color=spec["min_color"],
-                        mid_type='num', mid_value=col_median, mid_color=spec["mid_color"],
-                        end_type='num', end_value=col_max, end_color=spec["max_color"]
-                    )
-                else:
-                    # Special case: High_Security_Pct should be red for high, white for low
-                    if col_name == "High_Security_Pct":
-                        color_rule = ColorScaleRule(
-                            start_type='num', start_value=col_min, start_color="FFFFFF",
-                            end_type='num', end_value=col_max, end_color="f82b1b"
-                        )
-                    elif spec.get("reverse"):
-                        color_rule = ColorScaleRule(
-                            start_type='num', start_value=col_min, start_color=spec["max_color"],
-                            end_type='num', end_value=col_max, end_color=spec["min_color"]
-                        )
-                    else:
-                        color_rule = ColorScaleRule(
-                            start_type='num', start_value=col_min, start_color=spec["min_color"],
-                            end_type='num', end_value=col_max, end_color=spec["max_color"]
-                        )
-                combined_sheet.conditional_formatting.add(cell_range, color_rule)
+                    # Fallback: insert after second column
+                    deny_df.insert(2, "Deny Criteria", 10)
 
-        # Style -n/a- column in dark green if present
-        if "-n/a-" in header:
-            na_col_idx = header.index("-n/a-") + 1
-            dark_green_font = Font(color="006400")
-            for row in combined_sheet.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=combined_sheet.max_row):
-                for cell in row:
-                    cell.font = dark_green_font
-            combined_sheet.cell(row=1, column=na_col_idx).font = dark_green_font
+                # Create the sheet and write data properly
+                deny_sheet = wb.create_sheet("DenyList_Draft")
+                
+                # Write headers
+                for col_idx, col_name in enumerate(deny_df.columns, 1):
+                    deny_sheet.cell(row=1, column=col_idx, value=col_name)
+                
+                # Write data rows
+                for row_idx, row_data in enumerate(deny_df.itertuples(index=False), 2):
+                    for col_idx, value in enumerate(row_data, 1):
+                        deny_sheet.cell(row=row_idx, column=col_idx, value=value)
 
-        # Style Observation column "-n/a-" values in dark green
-        if "Observation" in header:
-            obs_col_idx = header.index("Observation") + 1
-            dark_green_font = Font(color="006400")
-            for row in combined_sheet.iter_rows(min_row=2, min_col=obs_col_idx, max_col=obs_col_idx, max_row=combined_sheet.max_row):
-                for cell in row:
-                    if str(cell.value) == "-n/a-":
-                        cell.font = dark_green_font
+                # Enable auto-filter and freeze first row
+                deny_sheet.auto_filter.ref = deny_sheet.dimensions
+                deny_sheet.freeze_panes = deny_sheet['A2']
+                # Set header alignment to left for Combined Data and DenyList_Draft
+                from openpyxl.styles import Alignment
+                left_align = Alignment(horizontal='left')
+                # Combined Data
+                combined_sheet = wb["Combined Data"]
+                for cell in combined_sheet[1]:
+                    cell.alignment = left_align
+                # DenyList_Draft
+                for cell in deny_sheet[1]:
+                    cell.alignment = left_align
+                # --- Enhanced Conditional Formatting for Combined Data ---
+                from openpyxl.formatting.rule import ColorScaleRule
+                from openpyxl.styles import Font
+                import numpy as np
 
-        # --- Conditional Formatting for DenyList_Draft ---
-        deny_header = [cell.value for cell in deny_sheet[1]]
-        deny_n_rows = deny_sheet.max_row
-        # Flag_Count column formatting (white to red, scale 0-5)
-        if "Flag_Count" in deny_header:
-            flag_count_idx = deny_header.index("Flag_Count") + 1
-            flag_count_letter = deny_sheet.cell(row=1, column=flag_count_idx).column_letter
-            flag_count_range = f"{flag_count_letter}2:{flag_count_letter}{deny_n_rows}"
-            from openpyxl.formatting.rule import ColorScaleRule
-            flag_count_rule = ColorScaleRule(
-                start_type='num', start_value=0, start_color="FFFFFF",
-                end_type='num', end_value=5, end_color="f82b1b"
-            )
-            deny_sheet.conditional_formatting.add(flag_count_range, flag_count_rule)
+                header = [cell.value for cell in combined_sheet[1]]
+                n_rows = combined_sheet.max_row
 
-        # Color flag columns red where True in both sheets
-        flag_cols = ["Poor_Conv_Rate", "New_User_Bot", "High_Security", "Speeder", "High_LOI", "High_RR", "FirstLastDateMatch", "FirstLastDateTimeMatch"]
-        red_font = Font(color="f82b1b")
-        # Combined Data
-        for flag_col in flag_cols:
-            if flag_col in header:
-                flag_idx = header.index(flag_col) + 1
-                for row in combined_sheet.iter_rows(min_row=2, min_col=flag_idx, max_col=flag_idx, max_row=combined_sheet.max_row):
-                    for cell in row:
-                        if str(cell.value).lower() == "true":
-                            cell.font = red_font
-        # DenyList_Draft
-        for flag_col in flag_cols:
-            if flag_col in deny_header:
-                flag_idx = deny_header.index(flag_col) + 1
-                for row in deny_sheet.iter_rows(min_row=2, min_col=flag_idx, max_col=flag_idx, max_row=deny_sheet.max_row):
-                    for cell in row:
-                        if str(cell.value).lower() == "true":
-                            cell.font = red_font
+                # Helper to get min/max and ensure numeric
+                def get_col_min_max(col_name):
+                    if col_name in merged_df.columns:
+                        col_data = pd.to_numeric(merged_df[col_name], errors='coerce')
+                        col_min = np.nanmin(col_data)
+                        col_max = np.nanmax(col_data)
+                        return col_min, col_max
+                    return None, None
 
-        # Style -n/a- column in dark green if present
-        if "-n/a-" in header:
-            na_col_idx = header.index("-n/a-") + 1
-            dark_green_font = Font(color="006400")
-            for row in combined_sheet.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=combined_sheet.max_row):
-                for cell in row:
-                    cell.font = dark_green_font
-            combined_sheet.cell(row=1, column=na_col_idx).font = dark_green_font
+                # Conditional formatting rules for each column
+                format_specs = {
+                    # system_conversion_rate: high is good, red for low (bad), white for high (good), scale 0-100
+                    "system_conversion_rate": {
+                        "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": True
+                    },
+                    # High_Security_Pct: high is bad, red for high (bad), white for low (good), scale 0-100
+                    "High_Security_Pct": {
+                        "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
+                    },
+                    # negative_recs_rate: high is bad, red for high (bad), white for low (good), scale 0-100
+                    "negative_recs_rate": {
+                        "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
+                    },
+                    # Flag_Count: fixed scale 0-5, white for low, red for high
+                    "Flag_Count": {
+                        "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 5, "reverse": False
+                    },
+                    # client_responsestatusid: orange to pickle green
+                    "client_responsestatusid": {
+                        "min_color": "FFA500", "max_color": "4f9e4f", "reverse": False
+                    },
+                    # session_loi: 3-color scale yellow-white-yellow
+                    "session_loi": {
+                        "min_color": "FFFF00", "mid_color": "FFFFFF", "max_color": "FFFF00", "reverse": False, "three_color": True
+                    },
+                    # supplier_bu_id: sky blue to gray
+                    "supplier_bu_id": {
+                        "min_color": "87CEEB", "max_color": "808080", "reverse": False
+                    },
+                    # survey_ccpi: white to yellow
+                    "survey_ccpi": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    # survey_qcpi: white to yellow
+                    "survey_qcpi": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    # Diff Days: white to yellow
+                    "Diff Days": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    # Total count columns: white (0) to yellow (high values)
+                    "total_system_entrants": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    "total_surveys_entered": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    "total_completes": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    "total_negative_recs": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    "total_security_terms_on_marketplace_side": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    "total_security_terms_on_client_side": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    },
+                    "sum_f_and_g_column": {
+                        "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+                    }
+                }
 
-        # DenyList_Draft specific: style "-n/a-" values in Observation column
-        if "Observation" in deny_header:
-            obs_col_idx = deny_header.index("Observation") + 1
-            dark_green_font = Font(color="006400")
-            for row in deny_sheet.iter_rows(min_row=2, min_col=obs_col_idx, max_col=obs_col_idx, max_row=deny_sheet.max_row):
-                for cell in row:
-                    if str(cell.value) == "-n/a-":
-                        cell.font = dark_green_font
+                for col_name, spec in format_specs.items():
+                    if col_name in header:
+                        col_idx = header.index(col_name) + 1
+                        col_letter = combined_sheet.cell(row=1, column=col_idx).column_letter
+                        cell_range = f"{col_letter}2:{col_letter}{n_rows}"
+                        
+                        # Get min/max
+                        if "min" in spec and "max" in spec:
+                            col_min, col_max = spec["min"], spec["max"]
+                        else:
+                            col_min, col_max = get_col_min_max(col_name)
+                            if col_min is None or col_max is None or col_min == col_max:
+                                continue
+                        # 3-color scale for session_loi
+                        if spec.get("three_color"):
+                            col_median = np.nanmedian(pd.to_numeric(merged_df[col_name], errors='coerce'))
+                            color_rule = ColorScaleRule(
+                                start_type='num', start_value=col_min, start_color=spec["min_color"],
+                                mid_type='num', mid_value=col_median, mid_color=spec["mid_color"],
+                                end_type='num', end_value=col_max, end_color=spec["max_color"]
+                            )
+                        else:
+                            # Special case: High_Security_Pct should be red for high, white for low
+                            if col_name == "High_Security_Pct":
+                                color_rule = ColorScaleRule(
+                                    start_type='num', start_value=col_min, start_color="FFFFFF",
+                                    end_type='num', end_value=col_max, end_color="f82b1b"
+                                )
+                            elif spec.get("reverse"):
+                                color_rule = ColorScaleRule(
+                                    start_type='num', start_value=col_min, start_color=spec["max_color"],
+                                    end_type='num', end_value=col_max, end_color=spec["min_color"]
+                                )
+                            else:
+                                color_rule = ColorScaleRule(
+                                    start_type='num', start_value=col_min, start_color=spec["min_color"],
+                                    end_type='num', end_value=col_max, end_color=spec["max_color"]
+                                )
+                        try:
+                            combined_sheet.conditional_formatting.add(cell_range, color_rule)
+                        except (TypeError, AttributeError) as e:
+                            # Graceful degradation for openpyxl compatibility issues
+                            print(f"Warning: Could not apply conditional formatting for {col_name}: {e}")
+                            continue
 
-    return output_path
+                # Style -n/a- column in dark green if present
+                if "-n/a-" in header:
+                    na_col_idx = header.index("-n/a-") + 1
+                    dark_green_font = Font(color="006400")
+                    for row in combined_sheet.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=combined_sheet.max_row):
+                        for cell in row:
+                            cell.font = dark_green_font
+                    combined_sheet.cell(row=1, column=na_col_idx).font = dark_green_font
+
+                # Style Observation column "-n/a-" values in dark green
+                if "Observation" in header:
+                    obs_col_idx = header.index("Observation") + 1
+                    dark_green_font = Font(color="006400")
+                    for row in combined_sheet.iter_rows(min_row=2, min_col=obs_col_idx, max_col=obs_col_idx, max_row=combined_sheet.max_row):
+                        for cell in row:
+                            if str(cell.value) == "-n/a-":
+                                cell.font = dark_green_font
+
+        except PermissionError:
+            raise ValueError(f"Cannot write to output file. Please ensure the file is not open in Excel: {output_filename}")
+        except Exception as e:
+            if "openpyxl" in str(e):
+                raise ValueError(f"Excel generation error: {str(e)}. The data was processed but Excel formatting failed.")
+            raise ValueError(f"Error creating Excel report: {str(e)}")
+
+        return output_path
+        
+    except ValueError:
+        raise  # Re-raise ValueError as-is
+    except Exception as e:
+        raise ValueError(f"Unexpected error during report generation: {str(e)}")
 
 def generate_pid_only_report(
     metrics_file_stream,
@@ -797,78 +834,87 @@ def generate_pid_only_report(
     conversion_rate_threshold=10,
     security_terms_threshold=30,
     negative_recs_rate_threshold=15,
-    use_datetime_for_newuser=True  # <-- add this
+    use_datetime_for_newuser=True
 ):
     """
     Processes only the PID Metrics file and generates an Excel report with observations (PID-only mode).
-    Skips session_loi-based checks and ignores speeder/high_loi multipliers.
-    Adds a simple Observation pivot sheet with formatting.
-    Also deletes all blank columns from the output.
-    In the Observation Pivot sheet, do not add a row total column since there is only one column with numbers.
     """
-    import pandas as pd
-    from datetime import datetime
-    import os
-    from openpyxl.styles import Font
-    metrics_df = pd.read_excel(metrics_file_stream, sheet_name='Marketplace Metrics by PID', skiprows=5)
-    metrics_df.columns = metrics_df.columns.str.strip().str.lower()
-    if 'pid' not in metrics_df.columns:
-        raise ValueError("Critical Error: 'pid' column not found in PID Metrics file.")
-    # Remove blank columns (all values are NaN or empty)
-    metrics_df = metrics_df.dropna(axis=1, how='all')
-    # Pass None for speeder_multiplier and high_loi_multiplier, and session_loi_checks=False
-    apply_pid_observation_logic(
-        metrics_df,
-        actual_loi=None,
-        conversion_rate_threshold=conversion_rate_threshold,
-        security_terms_threshold=security_terms_threshold,
-        speeder_multiplier=None,
-        high_loi_multiplier=None,
-        negative_recs_rate_threshold=negative_recs_rate_threshold,
-        session_loi_checks=False,
-        use_datetime_for_newuser=use_datetime_for_newuser  # <-- pass this
-    )
-    os.makedirs(output_dir, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"pid_metrics_report_{timestamp}.xlsx"
-    output_path = os.path.join(output_dir, output_filename)
-    with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-        metrics_df.to_excel(writer, sheet_name='PID Metrics Data', index=False)
-        workbook = writer.book
-        ws_data = writer.sheets['PID Metrics Data']
-        ws_data.freeze_panes = ws_data['B2']
-        ws_data.auto_filter.ref = ws_data.dimensions
-        # Add Observation Pivot with formatting and conditional totals
-        if 'Observation' in metrics_df.columns:
-            obs_counts = metrics_df['Observation'].value_counts().reset_index()
-            obs_counts.columns = ['Observation', 'Count']
-            na_row = obs_counts[obs_counts['Observation'] == '-n/a-']
-            other_rows = obs_counts[obs_counts['Observation'] != '-n/a-'].sort_values('Count', ascending=False)
-            obs_counts_sorted = pd.concat([na_row, other_rows], ignore_index=True)
-            # Only add totals if there are multiple unique observations
-            add_totals = len(obs_counts_sorted) > 1
-            # Do NOT add row total column in PID-only mode
-            obs_counts_sorted.to_excel(writer, sheet_name='Observation Pivot', index=False)
-            ws_pivot = writer.sheets['Observation Pivot']
-            ws_pivot.auto_filter.ref = ws_pivot.dimensions
-            ws_pivot.freeze_panes = ws_pivot['B2']
-            dark_green_font = Font(color="006400")
-            for row in ws_pivot.iter_rows(min_row=2, max_row=2, min_col=1, max_col=2):
-                for cell in row:
-                    if cell.value == '-n/a-' or (cell.row == 2 and ws_pivot['A2'].value == '-n/a-'):
-                        cell.font = dark_green_font
-            # Style Row Total row bold and add column total if needed
-            if add_totals:
-                total_row_idx = ws_pivot.max_row
-                # Only add bold if there is a Row Total row (but not a row total column)
-                if ws_pivot.cell(row=total_row_idx, column=1).value == 'Row Total':
-                    for cell in ws_pivot[total_row_idx]:
-                        cell.font = Font(bold=True)
-                # Add column total (sum of Count column) in the cell below last row
-                ws_pivot.cell(row=ws_pivot.max_row+1, column=1, value='Column Total')
-                ws_pivot.cell(row=ws_pivot.max_row, column=2, value=obs_counts_sorted['Count'].sum())
-                ws_pivot.cell(row=ws_pivot.max_row, column=2).font = Font(bold=True)
-    return output_path
+    try:
+        # Enhanced file reading with error handling
+        try:
+            metrics_df = pd.read_excel(metrics_file_stream, sheet_name='Marketplace Metrics by PID', skiprows=5)
+        except Exception as e:
+            if "Worksheet named" in str(e):
+                raise ValueError("Excel file must contain a sheet named 'Marketplace Metrics by PID'. Please check your file format.")
+            raise ValueError(f"Error reading PID Metrics file: {str(e)}")
+            
+        metrics_df.columns = metrics_df.columns.str.strip().str.lower()
+        
+        if 'pid' not in metrics_df.columns:
+            available_cols = ", ".join(metrics_df.columns[:5])
+            raise ValueError(f"Critical Error: 'pid' column not found in PID Metrics file. Available columns: {available_cols}...")
+            
+        if metrics_df.empty:
+            raise ValueError("PID Metrics file contains no data rows. Please check your Excel file.")
+        
+        # Pass None for speeder_multiplier and high_loi_multiplier, and session_loi_checks=False
+        metrics_df = apply_pid_observation_logic(
+            metrics_df,
+            actual_loi=None,
+            conversion_rate_threshold=conversion_rate_threshold,
+            security_terms_threshold=security_terms_threshold,
+            speeder_multiplier=None,
+            high_loi_multiplier=None,
+            negative_recs_rate_threshold=negative_recs_rate_threshold,
+            session_loi_checks=False,
+            use_datetime_for_newuser=use_datetime_for_newuser
+        )
+        
+        # --- Generate Excel File ---
+        os.makedirs(output_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_filename = f"pid_metrics_report_{timestamp}.xlsx"
+        output_path = os.path.join(output_dir, output_filename)
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            metrics_df.to_excel(writer, sheet_name='PID Metrics Data', index=False)
+            workbook = writer.book
+            ws_data = writer.sheets['PID Metrics Data']
+            ws_data.freeze_panes = ws_data['B2']
+            ws_data.auto_filter.ref = ws_data.dimensions
+            # Add Observation Pivot with formatting and conditional totals
+            if 'Observation' in metrics_df.columns:
+                obs_counts = metrics_df['Observation'].value_counts().reset_index()
+                obs_counts.columns = ['Observation', 'Count']
+                na_row = obs_counts[obs_counts['Observation'] == '-n/a-']
+                other_rows = obs_counts[obs_counts['Observation'] != '-n/a-'].sort_values('Count', ascending=False)
+                obs_counts_sorted = pd.concat([na_row, other_rows], ignore_index=True)
+                # Only add totals if there are multiple unique observations
+                add_totals = len(obs_counts_sorted) > 1
+                # Do NOT add row total column in PID-only mode
+                obs_counts_sorted.to_excel(writer, sheet_name='Observation Pivot', index=False)
+                ws_pivot = writer.sheets['Observation Pivot']
+                ws_pivot.auto_filter.ref = ws_pivot.dimensions
+                ws_pivot.freeze_panes = ws_pivot['B2']
+                dark_green_font = Font(color="006400")
+                for row in ws_pivot.iter_rows(min_row=2, max_row=2, min_col=1, max_col=2):
+                    for cell in row:
+                        if cell.value == '-n/a-' or (cell.row == 2 and ws_pivot['A2'].value == '-n/a-'):
+                            cell.font = dark_green_font
+                # Style Row Total row bold and add column total if needed
+                if add_totals:
+                    total_row_idx = ws_pivot.max_row
+                    # Only add bold if there is a Row Total row (but not a row total column)
+                    if ws_pivot.cell(row=total_row_idx, column=1).value == 'Row Total':
+                        for cell in ws_pivot[total_row_idx]:
+                            cell.font = Font(bold=True)
+                    # Add column total (sum of Count column) in the cell below last row
+                    ws_pivot.cell(row=ws_pivot.max_row+1, column=1, value='Column Total')
+                    ws_pivot.cell(row=ws_pivot.max_row, column=2, value=obs_counts_sorted['Count'].sum())
+                    ws_pivot.cell(row=ws_pivot.max_row, column=2).font = Font(bold=True)
+    except ValueError:
+        raise  # Re-raise ValueError as-is
+    except Exception as e:
+        raise ValueError(f"Unexpected error in PID-only processing: {str(e)}")
 
 def apply_pid_observation_logic(
     df,
@@ -879,19 +925,44 @@ def apply_pid_observation_logic(
     high_loi_multiplier=3,
     negative_recs_rate_threshold=15,
     session_loi_checks=True,
-    use_datetime_for_newuser=True  # Add this parameter
+    use_datetime_for_newuser=True
 ):
     """
     Applies all non-RID-based observation logic to the DataFrame in-place.
     If session_loi_checks is False, skips Speeder and High LOI checks.
     """
     import pandas as pd
-    # Dates: Convert to datetime objects if they are not already.
+    
+    # Validate required columns exist
+    required_base_cols = ['system_conversion_rate', 'negative_recs_rate']
+    missing_cols = [col for col in required_base_cols if col not in df.columns]
+    if missing_cols:
+        available_cols = ", ".join(df.columns[:10])
+        raise ValueError(f"Missing required columns for analysis: {missing_cols}. Available columns: {available_cols}...")
+    
+    # Check for datetime columns
+    datetime_cols = ['first_entry_date_time', 'last_entry_date_time']
+    missing_datetime = [col for col in datetime_cols if col not in df.columns]
+    if missing_datetime and use_datetime_for_newuser:
+        raise ValueError(f"Missing datetime columns: {missing_datetime}. Please ensure your PID Metrics file contains these columns or switch to date-only mode.")
+    
+    # Validate security analysis columns
+    security_cols = ['sum_f_and_g_column', 'total_system_entrants']
+    missing_security = [col for col in security_cols if col not in df.columns]
+    if missing_security:
+        raise ValueError(f"Missing security analysis columns: {missing_security}. Please ensure your PID Metrics file is complete.")
+    
+    # Check for session LOI column if needed
+    if session_loi_checks and 'session_loi' not in df.columns:
+        raise ValueError("Missing 'session_loi' column required for Speeder and High LOI analysis. Please ensure your files are merged correctly.")
+    
     try:
+        # Dates: Convert to datetime objects if they are not already.
         df["first_entry_date_time"] = pd.to_datetime(df.get("first_entry_date_time"), errors='coerce')
         df["last_entry_date_time"] = pd.to_datetime(df.get("last_entry_date_time"), errors='coerce')
-    except Exception:
-        pass
+    except Exception as e:
+        raise ValueError(f"Error processing datetime columns: {str(e)}. Please check your date/time data format.")
+    
     # Set default value
     df["Observation"] = "-n/a-"
     
