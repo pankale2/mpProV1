@@ -5,7 +5,7 @@ import os
 from openpyxl.styles import Alignment
 import tempfile
 
-# Import the new modular components
+# Import the new modular components - FIXED PATHS
 from data_processors import read_rid_file_from_stream, read_metrics_file_from_stream, apply_pid_observation_logic
 from excel_generators import (
     add_pivot_and_format, add_check_results_pivot, 
