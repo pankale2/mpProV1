@@ -4,7 +4,7 @@ import os
 import tempfile
 import sys
 from werkzeug.utils import secure_filename
-import survey_processor
+import controller  # UPDATED: Import from new controller module instead of survey_processor
 import datetime
 
 app = Flask(__name__)
@@ -46,6 +46,12 @@ def get_top_surveyids_from_file(file_storage):
         df = pd.read_csv(file_storage.stream)
         file_storage.stream.seek(0)
         
+        # Always normalize column names (convert to string first to handle integers)
+        df.columns = [str(col) for col in df.columns]
+        df.columns = df.columns.str.strip().str.lower()
+        # Remove columns with blank headers
+        df = df.loc[:, df.columns != '']
+        
         # Case-insensitive column search
         surveyid_col = next((col for col in df.columns if col.lower() == 'surveyid'), None)
         
@@ -66,7 +72,6 @@ def index():
         try:
             rid_file_storage = request.files.get('rid_file')
             metrics_file_storage = request.files.get('metrics_file')
-            survey_loi_str = request.form.get('survey_loi', '10.0') # Default to 10.0 if not provided
 
             # New: Get thresholds from form, with defaults
             conversion_rate_threshold = float(request.form.get('conversion_rate_threshold', '10'))
@@ -74,9 +79,23 @@ def index():
             speeder_multiplier = float(request.form.get('speeder_multiplier', '3'))
             high_loi_multiplier = float(request.form.get('high_loi_multiplier', '4'))
             negative_recs_rate_threshold = float(request.form.get('negative_recs_rate_threshold', '15'))
-            process_status_26_only = 'process_status_26_only' in request.form
             pid_only_mode = 'pid_only_mode' in request.form
-            use_datetime_for_newuser = request.form.get('use_datetime_for_newuser', '1') == '1'
+
+            # NEW: Collect survey-specific LOI values
+            survey_loi_mapping = {}
+            for key in request.form.keys():
+                if key.startswith('survey_loi_'):
+                    survey_id = key[11:]  # Remove 'survey_loi_' prefix
+                    try:
+                        loi_value = float(request.form.get(key))
+                        if 3 <= loi_value <= 100:
+                            survey_loi_mapping[survey_id] = loi_value
+                        else:
+                            flash(f'Invalid LOI value for Survey ID {survey_id}. Must be between 3 and 100.', 'error')
+                            return render_template('index.html', top_surveyids=[], top_counts=[]), 400
+                    except (ValueError, TypeError):
+                        flash(f'Invalid LOI value for Survey ID {survey_id}. Must be a number between 3 and 100.', 'error')
+                        return render_template('index.html', top_surveyids=[], top_counts=[]), 400
 
             # If neither file is provided, error
             if (not rid_file_storage or rid_file_storage.filename == '') and (not metrics_file_storage or metrics_file_storage.filename == ''):
@@ -91,13 +110,12 @@ def index():
                         return render_template('index.html', top_surveyids=[], top_counts=[]), 400
                     
                     metrics_file_storage.stream.seek(0)
-                    output_path = survey_processor.generate_pid_only_report(
+                    output_path = controller.generate_pid_only_report(
                         metrics_file_stream=metrics_file_storage.stream,
                         output_dir=OUTPUT_FOLDER,
                         conversion_rate_threshold=conversion_rate_threshold,
                         security_terms_threshold=security_terms_threshold,
-                        negative_recs_rate_threshold=negative_recs_rate_threshold,
-                        use_datetime_for_newuser=use_datetime_for_newuser
+                        negative_recs_rate_threshold=negative_recs_rate_threshold
                     )
                     flash('Processing complete! Your download should start automatically.', 'success')
                     session['just_processed'] = True
@@ -118,13 +136,12 @@ def index():
             if (not rid_file_storage or rid_file_storage.filename == '') and metrics_file_storage and metrics_file_storage.filename:
                 try:
                     metrics_file_storage.stream.seek(0)
-                    output_path = survey_processor.generate_pid_only_report(
+                    output_path = controller.generate_pid_only_report(
                         metrics_file_stream=metrics_file_storage.stream,
                         output_dir=OUTPUT_FOLDER,
                         conversion_rate_threshold=conversion_rate_threshold,
                         security_terms_threshold=security_terms_threshold,
-                        negative_recs_rate_threshold=negative_recs_rate_threshold,
-                        use_datetime_for_newuser=use_datetime_for_newuser  # <-- pass this!
+                        negative_recs_rate_threshold=negative_recs_rate_threshold
                     )
                     flash('Processing complete! Your download should start automatically.', 'success')
                     session['just_processed'] = True
@@ -146,14 +163,10 @@ def index():
                     top_counts=top_counts
                 ), 400
 
-            try:
-                actual_loi = float(survey_loi_str)
-                if not (3 <= actual_loi <= 100):
-                    # This validation is also in survey_processor, but good to have early feedback
-                    raise ValueError("Survey Actual LOI must be a number between 3 and 100.")
-            except ValueError as e:
+            # NEW: Validate that we have LOI values for RID+PID mode
+            if not pid_only_mode and len(survey_loi_mapping) == 0:
                 top_surveyids, top_counts = get_top_surveyids_from_file(rid_file_storage) if rid_file_storage and rid_file_storage.filename else ([], [])
-                flash(f"Invalid Survey Actual LOI: {e}", 'error')
+                flash('No Survey LOI values provided. Please enter LOI values for all surveys after uploading the RID file.', 'error')
                 return render_template(
                     'index.html',
                     top_surveyids=top_surveyids,
@@ -185,15 +198,13 @@ def index():
                 # --- Process files using streams/paths ---
                 rid_file_storage.stream.seek(0)
                 metrics_file_storage.stream.seek(0)
-                report_path_final = survey_processor.generate_survey_report(
-                    rid_file_storage.stream, metrics_file_storage.stream, actual_loi, OUTPUT_FOLDER,
+                report_path_final = controller.generate_survey_report(
+                    rid_file_storage.stream, metrics_file_storage.stream, survey_loi_mapping, OUTPUT_FOLDER,
                     conversion_rate_threshold=conversion_rate_threshold,
                     security_terms_threshold=security_terms_threshold,
                     speeder_multiplier=speeder_multiplier,
                     high_loi_multiplier=high_loi_multiplier,
-                    negative_recs_rate_threshold=negative_recs_rate_threshold,
-                    process_status_26_only=process_status_26_only,
-                    use_datetime_for_newuser=use_datetime_for_newuser
+                    negative_recs_rate_threshold=negative_recs_rate_threshold
                 )
 
                 # Read surveyids for UI (top 3 by count)
@@ -210,25 +221,6 @@ def index():
                 )
                 top_surveyids = list(surveyid_counts.index[:3])
                 top_counts = list(surveyid_counts.values[:3])
-
-                # Check for status=26 rows if checkbox is enabled
-                if process_status_26_only:
-                    rid_file_storage.stream.seek(0)
-                    try:
-                        rid_df_check = pd.read_csv(rid_file_storage.stream)
-                    except Exception as e:
-                        rid_df_check = pd.DataFrame()
-                    rid_file_storage.stream.seek(0)
-                    if 'client_responsestatusid' in rid_df_check.columns:
-                        has_26 = (rid_df_check['client_responsestatusid'].astype(str) == '26').any()
-                        if not has_26:
-                            flash('No rows with status=26 found in the uploaded RID file. Uncheck "Process only status=26" to proceed with all rows.', 'error')
-                            from flask import get_flashed_messages
-                            return render_template(
-                                'index.html',
-                                top_surveyids=top_surveyids,
-                                top_counts=top_counts
-                            ), 400
 
                 flash('Processing complete! Your download should start automatically.', 'success')
                 session['just_processed'] = True
@@ -322,4 +314,14 @@ def generate_error_file(error_message):
         return render_template('index.html', top_surveyids=[], top_counts=[]), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Determine execution context
+    is_exe = getattr(sys, 'frozen', False)
+    
+    if is_exe:
+        # EXE mode: use production settings
+        app.run(host="127.0.0.1", port=5000, debug=False)
+    else:
+        # Development mode: Use run.py for development instead
+        print("For development, please use: python run.py")
+        print("This will provide better development experience with controlled browser opening.")
+        app.run(host="127.0.0.1", port=5000, debug=True)

@@ -24,12 +24,14 @@ CSV/Excel Upload → Stream Processing → Pandas Merge → Observation Logic �
 
 ### Observation Flagging System (survey_processor.py:680-720)
 Six flag types applied in sequence, with later flags overwriting `Observation` column:
-1. **Poor_Conv_Rate**: `system_conversion_rate < threshold%`
-2. **New_User_Bot**: `first_entry_date_time == last_entry_date_time` (datetime mode) or date-only comparison
-3. **High_Security**: `sum_f_and_g_column/total_system_entrants > threshold%`
+1. **Poor_Conv_Rate**: `system_conversion_rate < threshold%` AND `total_surveys_entered >= 5`
+2. **New_User_Bot**: `first_entry_date == last_entry_date` (date-only comparison)
+3. **High_Security**: `security_terms_rate > threshold%` AND `total_surveys_entered >= 5`
 4. **Speeder**: `session_loi < actual_loi/multiplier` (RID+PID mode only)
 5. **High_LOI**: `session_loi > actual_loi*multiplier` (RID+PID mode only)
-6. **High_RR**: `negative_recs_rate > threshold%`
+6. **High_RR**: `net_recs_rate > threshold%` AND `total_surveys_entered >= 5`
+
+**Survey Count Condition**: Three flags (Poor_Conv_Rate, High_Security, High_RR) only apply when `total_surveys_entered >= 5`. NULL/NaN/non-numeric values in this column are treated as 0.
 
 ### Excel Output Structure
 - **Combined Data**: Merged dataset with calculated columns
@@ -98,3 +100,5 @@ Use files in `Example inputs/` directory. Test both processing modes with variou
 - Stream position not reset between operations
 - Missing null checks in boolean mask operations
 - Excel formula references when moving sheets
+
+## When i request any changes, please do not make changes directly to the script. First confirm your understanding, qny queries/confusion, provide the plan for approval.

@@ -5,1038 +5,208 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RID+PID Processor</title>
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
-    <style>
-        body { 
-            font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
-            margin: 0; 
-            padding: 20px; 
-            background-color: #f4f7fa; 
-            color: #22223b;
-            line-height: 1.6;
-        }
-        .container { 
-            max-width: 1600px;
-            margin: 5px auto;
-            background-color: #fff; 
-            padding: 15px 15px; 
-            border-radius: 14px; 
-            box-shadow: 0 6px 24px rgba(34, 34, 59, 0.08); 
-        }
-        h1 {
-            color: #22223b;
-            text-align: left;
-            margin-bottom: 28px;
-            margin-top: 5px;
-            font-size: 2.2rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
-        .main-flex-row {
-            display: flex;
-            flex-direction: row;
-            gap: 32px;
-        }
-        .left-section, .right-section {
-            min-width: 320px;
-            transition: flex 0.3s, max-width 0.3s;
-        }
-        .left-section {
-            border-right: 1px solid #e0e0e0;
-            padding-right: 32px;
-            flex: 1 1 0;
-        }
-        .right-section {
-            padding-left: 10px;
-            flex: 1 1 0;
-            display: block;
-        }
-        .main-flex-row.adv-hidden .left-section {
-            flex: 1 1 100%;
-            max-width: 100%;
-            border-right: none;
-            padding-right: 0;
-        }
-        .main-flex-row.adv-hidden .right-section {
-            display: none;
-        }
-        .form-flex-row {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            margin-bottom: 10px;
-        }
-        .form-group {
-            flex: 1 1 250px;
-            min-width: 220px;
-            margin-bottom: 0;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-        /* Compact form-group for right-section to reduce label gap */
-        .right-section .form-group {
-            flex: unset;
-            min-width: unset;
-            margin-bottom: 0;
-            padding-left: 0;
-        }
-        label { 
-            margin-bottom: 6px; 
-            font-weight: 600;
-            color: #22223b;
-            font-size: 1rem;
-            letter-spacing: 0.1px;
-        }
-        input[type="file"], 
-        input[type="number"] { 
-            width: 100%;
-            padding: 10px 12px; 
-            border: 1px solid #bfc9d1;
-            border-radius: 6px;
-            box-sizing: border-box;
-            margin-bottom: 0;
-            font-size: 1rem;
-            background: #f8fafc;
-            color: #22223b;
-            transition: border-color 0.2s;
-        }
-        input[type="file"]:focus, 
-        input[type="number"]:focus {
-            border-color: #00b6f0;
-            outline: none;
-        }
-        input[type="file"] {
-            cursor: pointer;
-        }
-        input[type="submit"], button[type="button"] { 
-            background-color: #2a0b57;
-            color: #fff; 
-            padding: 13px 22px; 
-            border: none; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-size: 1.1rem;
-            font-weight: 600;
-            transition: background 0.2s, color 0.2s;
-            margin-top: 10px;
-            box-shadow: 0 2px 8px rgba(42,11,87,0.08);
-        }
-        input[type="submit"]:hover:enabled, button[type="button"]:hover:enabled { 
-            background-color: #cd25f1;
-            color: #fff;
-        }
-        input[type="submit"]:disabled, button[type="button"]:disabled {
-            cursor: not-allowed;
-            /* Keep background color unchanged on hover when disabled */
-            background-color: #2a0b57;
-            color: #fff;
-        }
-        /* Spinner overlay styles */
-        #processing-overlay {
-            display: none;
-            position: fixed;
-            z-index: 9999;
-            left: 0; top: 0; right: 0; bottom: 0;
-            background: rgba(255,255,255,0.7);
-            align-items: center;
-            justify-content: center;
-        }
-        #processing-overlay .spinner {
-            border: 6px solid #f3f3f3;
-            border-top: 6px solid #cd25f1;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            animation: spin 1s linear infinite;
-            margin-bottom: 18px;
-        }
-        #processing-overlay .processing-text {
-            font-size: 1.2rem;
-            color: #2a0b57;
-            font-weight: 600;
-            text-wrap: wrap;
-            text-align: center;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg);}
-            100% { transform: rotate(360deg);}
-        }
-        #advanced-options {
-            margin-top: 8px;
-        }
-        a {
-            color: #cd25f1;
-            text-decoration: underline;
-            transition: color 0.2s;
-        }
-        a:hover {
-            color: #2a0b57;
-        }
-        /* Add pointer cursor for checkbox and its label */
-        #process_status_26_only,
-        label[for="process_status_26_only"],
-        #process_status_26_only + span {
-            cursor: pointer;
-        }
-        .info-icon {
-            display: inline-block;
-            margin-left: 8px;
-            color: #cd25f1;
-            background: #f4f7fa;
-            border-radius: 50%;
-            width: 22px;
-            height: 22px;
-            text-align: center;
-            font-weight: normal;
-            font-size: 1.1rem;
-            line-height: 22px;
-            cursor: pointer;
-            border: 1px solid #cd25f1;
-            text-decoration: none;
-            vertical-align: middle;
-            position: relative;
-        }
-        .info-popup {
-            display: none;
-            position: absolute;
-            left: 30px;
-            top: 0;
-            z-index: 10;
-            background: #fff;
-            color: #22223b;
-            border: 1px solid #cd25f1;
-            border-radius: 8px;
-            padding: 18px 22px 18px 22px;
-            min-width: 440px;
-            max-width: 820px;
-            font-size: 0.8rem;
-            box-shadow: 0 4px 16px rgba(34,34,59,0.12);
-            text-align: left;
-            font-weight: normal;
-        }
-        .info-popup.visible {
-            display: block;
-        }
-        .info-popup .close-btn {
-            position: absolute;
-            top: 8px;
-            right: 12px;
-            background: none;
-            border: none;
-            color: #cd25f1;
-            font-size: 1.5em;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 0;
-            line-height: 1;
-        }
-        .flash-messages { 
-            list-style: none; 
-            padding: 0; 
-            margin-bottom: 20px;
-        }
-        .flash-messages li { 
-            padding: 12px 15px; 
-            margin-bottom: 10px; 
-            border-radius: 6px;
-            border: 1px solid transparent;
-            font-size: 1rem;
-        }
-        .flash-messages li.error {
-            background-color: #ffe5e5;
-            border-color: #ffb3b3;
-            color: #b00020;
-        }
-        .flash-messages li.success {
-            background-color: #e6f7f9;
-            border-color: #b3eaf7;
-            color: #008cba;
-        }
-        @media (max-width: 900px) {
-            .container { max-width: 98vw; }
-            .main-flex-row { flex-direction: column; gap: 0; }
-            .left-section, .right-section { min-width: 0; padding: 0; border: none; }
-        }
-        @media (max-width: 600px) {
-            .info-popup { left: 0; min-width: 220px; max-width: 98vw; font-size: 0.95rem; }
-        }
-        #date-mode-group .switch {
-          width: 54px;
-          height: 28px;
-          margin-right: 0;
-        }
-        #date-mode-group .slider {
-          background-color: #2a0b57;
-        }
-        #date-mode-group input:checked + .slider {
-          background-color: #cd25f1;
-        }
-    </style>
-    <!-- Add Inter font from Google Fonts -->
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div class="container">        
-        {% set show_messages = messages if messages is defined else get_flashed_messages(with_categories=true) %}
-        {% if show_messages %}
-          <ul class="flash-messages">
-          {% for category, message in show_messages %}
-            <li class="{{ category }}">{{ message }}</li>
-          {% endfor %}
-          </ul>
-        {% endif %}
+    <div class="container">
+      {% set show_messages = messages if messages is defined else get_flashed_messages(with_categories=true) %}
+      {% if show_messages %}
+        <ul class="flash-messages">
+        {% for category, message in show_messages %}
+          <li class="{{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
 
-        <form method="post" enctype="multipart/form-data" id="main-form">
-          <div class="main-flex-row adv-hidden" id="main-flex-row">
-            <div class="left-section">
-              <h1 style="position:relative;">
-                RID+PID Processor
-                <a href="#" class="info-icon" id="info-icon" tabindex="0" aria-label="Show observation logic info">i</a>
-                <div class="info-popup" id="info-popup">
-                  <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
-                  <strong style="font-weight:600;">How This Tool Works</strong>
-                  <ul style="margin-top:8px; margin-bottom:0; padding-left:18px; font-weight: normal;">
-                    <li style="margin-top:8px;"><b>Modes:</b>
-                      <ul>
-                        <li><b>RID+PID Mode</b> (Default):
-                          <ul>
-                            <li>Requires both RID Lookup CSV and PID Metrics Excel files</li>
-                            <li>After RID file upload, Survey LOI box & links to surveyids (to see actual LOIs) becomes available</li>
-                            <li>All 6 observation checks are applied</li>
-                          </ul>
-                        </li>
-                        <li><b>PID-only Mode:</b>
-                          <ul>
-                            <li>Requires only PID Metrics Excel file, RID file and Survey LOI inputs are hidden</li>
-                            <li>Only PID-based checks are applied; session_loi-based checks are skipped.</li>
-                          </ul>
-                        </li>
-                      </ul>
-                    </li>
-                    <li style="margin-top:8px;"><b>Observation Checks &amp;  Order:</b>
-                      <ol style="margin: 6px 0 0 18px; padding-left:0;">
-                        <li><b>Poor Conversion Rate:</b> system_conversion_rate &lt; threshold</li>
-                        <li><b>New User (bot?):</b> FIRST_ENTRY_DATE_TIME = LAST_ENTRY_DATE_TIME</li>
-                        <li><b>High Security Terms:</b> <code>sum_f_and_g_column / TOTAL_SYSTEM_ENTRANTS &gt; threshold</code></li>
-                        <li><b>Speeder:</b> session_loi &lt; actual_loi/divider (RID+PID only)</li>
-                        <li><b>High LOI, Distracted:</b> session_loi &gt; actual_loi×multiplier (RID+PID only)</li>
-                        <li><b>High RR%:</b> negative_recs_rate &gt; threshold</li>                                              
-                      </ol>
-                      <p><b>If no checks match: <code style="color: #006400; font-weight:600;">-n/a-</code> is noted in the Observation column.</b></p>
-                    </li>
-                    <li style="margin-top:8px;"><b>Advanced Options:</b>
-                      <ul>
-                        <li>Review and customize thresholds for all checks as per your preferences.</li>
-                        <li>in RID+PID mode, only reconciled (Status=26) records are processed as a default. Update checkbox as necessary.</li>
-                        <li>Your settings are saved in your browser for convenience.</li>
-                      </ul>
-                    </li>
-                    <li style="margin-top:8px;"><b>Output Report:</b>
-                      <ul>
-                        <li>"Observation" column shows final/latest matching check (as before).</li>
-                        <li>Six additional columns show all matching checks (True/False)</li>
-                        <li>Four pivot sheets summarizing results:
-                          <ul>
-                            <li>"Flags Pivot (Multi)" - Shows counts for each check condition by supplier</li>
-                            <li>"Flags Pivot (Priority)" - Uses single observation based on priority order. If a record qualifies multiple checks, <i>only the later check (in the above listed checks order) is noted</i></li>
-                            <li>"Pivot EntryDate x Supplier" - Daily counts of entries by supplier</li>
-                            <li>"Pivot EntryDate x Flags" - Daily counts of flags by observation type</li>
-                          </ul>
-                        </li>
-                        <li>"DenyList_Draft" - Includes necessary format and details to help create the final Deny-List CSV.</li>
-                      </ul>
-                    </li>
-                    <li style="margin-top:8px;"><b>Validation:</b>
-                      <ul>
-                        <li>Files: CSV for RID, XLSX for PID Metrics, only upload the original files, with no modifications</li>
-                        <li>LOI: Must be a number between 3 and 100, required in RID+PID mode</li>
-                        <li>Check button tooltips for real-time feedback</li>
-                        <li>Process button enables when requirements met</li>
-                      </ul>
-                    </li>
-                  </ul>
-                  <p style="text-align: right;">for any queries/concerns, reach out to <a href="https://cint.enterprise.slack.com/archives/D0327778C3S" target="_blank">Pankaj Kale</a>.</p>
-                </div>
-              </h1>
-              <!-- MODE SLIDER START -->
-              <div class="form-group" id="mode-slider-group" style="margin-bottom: 35px;">                
-                <div style="display: flex; align-items: center; gap: 18px;">
-                  <span id="mode-label-ridpid" style="font-weight: 600; color: #2a0b57;">RID+PID Mode</span>
-                  <label class="switch" style="margin: 0 8px;">
-                    <input type="checkbox" id="mode_slider" name="mode_slider">
-                    <span class="slider round"></span>
-                  </label>
-                  <span id="mode-label-pidonly" style="font-weight: 600; color: #cd25f1;">PID only Mode</span>
-                </div>
+      <form method="post" enctype="multipart/form-data" id="main-form">
+        <div class="main-flex-row adv-hidden" id="main-flex-row">
+          <div class="left-section">
+            <h1 style="position:relative;">
+              RID+PID Processor
+              <a href="#" class="info-icon" id="info-icon" tabindex="0" aria-label="Show observation logic info">i</a>
+              <div class="info-popup" id="info-popup">
+                <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
+                <strong style="font-weight:600;">How This Tool Works</strong>
+                <ul style="margin-top:8px; margin-bottom:0; padding-left:18px; font-weight: normal;">
+                  <li style="margin-top:8px;"><b>Modes:</b>
+                    <ul>
+                      <li><b>RID+PID Mode</b> (Default):
+                        <ul>
+                          <li>Requires both RID Lookup CSV and PID Metrics Excel files</li>
+                          <li>After RID file upload, Survey LOI box & links to surveyids (to see actual LOIs) becomes available</li>
+                          <li>All 6 observation checks are applied</li>
+                        </ul>
+                      </li>
+                      <li><b>PID-only Mode:</b>
+                        <ul>
+                          <li>Requires only PID Metrics Excel file, RID file and Survey LOI inputs are hidden</li>
+                          <li>Only PID-based checks are applied; session_loi-based checks are skipped.</li>
+                        </ul>
+                      </li>
+                    </ul>
+                  </li>
+                  <li style="margin-top:8px;"><b>Observation Checks &amp;  Order:</b>
+                    <ol style="margin: 6px 0 0 18px; padding-left:0;">
+                      <li><b>Poor Conversion Rate:</b> system_conversion_rate &lt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered ≥ 5</span></li>
+                      <li><b>New User (bot?):</b> FIRST_ENTRY_DATE = LAST_ENTRY_DATE</li>
+                      <li><b>High Security Terms:</b> <code>security_terms_rate &gt; threshold</code> <span style="color:#cd25f1;">&amp; total_surveys_entered ≥ 5</span></li>
+                      <li><b>Speeder:</b> session_loi &lt; actual_loi/divider (RID+PID only)</li>
+                      <li><b>High LOI, Distracted:</b> session_loi &gt; actual_loi×multiplier (RID+PID only)</li>
+                      <li><b>High RR%:</b> net_recs_rate &gt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered ≥ 5</span></li>                                              
+                    </ol>
+                    <p><b>If no checks match: <code style="color: #006400; font-weight:600;">-n/a-</code> is noted in the Observation column.</b></p>
+                  </li>
+                  <li style="margin-top:8px;"><b>Advanced Options:</b>
+                    <ul>
+                      <li>Review and customize thresholds for all checks as per your preferences.</li>
+                      <li>Your settings are saved in your browser for convenience.</li>
+                    </ul>
+                  </li>
+                  <li style="margin-top:8px;"><b>Output Report:</b>
+                    <ul>
+                      <li>"Observation" column shows final/latest matching check (as before).</li>
+                      <li>Six additional columns show all matching checks (True/False)</li>
+                      <li>Four pivot sheets summarizing results:
+                        <ul>
+                          <li>"Flags Pivot (Multi)" - Shows counts for each check condition by supplier</li>
+                          <li>"Flags Pivot (Priority)" - Uses single observation based on priority order. If a record qualifies multiple checks, <i>only the later check (in the above listed checks order) is noted</i></li>
+                          <li>"Pivot EntryDate x Supplier" - Daily counts of entries by supplier</li>
+                          <li>"Pivot EntryDate x Flags" - Daily counts of flags by observation type</li>
+                        </ul>
+                      </li>
+                      <li>"DenyList_Draft" - Includes necessary format and details to help create the final Deny-List CSV.</li>
+                    </ul>
+                  </li>
+                  <li style="margin-top:8px;"><b>Validation:</b>
+                    <ul>
+                      <li>Files: CSV for RID, XLSX for PID Metrics, only upload the original files, with no modifications</li>
+                      <li>LOI: Must be a number between 3 and 100, required in RID+PID mode</li>
+                      <li>Check button tooltips for real-time feedback</li>
+                      <li>Process button enables when requirements met</li>
+                    </ul>
+                  </li>
+                </ul>
+                <p style="text-align: right;">for any queries/concerns, reach out to <a href="https://cint.enterprise.slack.com/archives/D0327778C3S" target="_blank">T&amp;S team</a>.</p>
               </div>
-              <style>
-                .switch {
-                  position: relative;
-                  display: inline-block;
-                  width: 54px;
-                  height: 28px;
-                  vertical-align: middle;
-                }
-                .switch input {
-                  opacity: 0;
-                  width: 0;
-                  height: 0;
-                }
-                .slider {
-                  position: absolute;
-                  cursor: pointer;
-                  top: 0; left: 0; right: 0; bottom: 0;
-                  background-color: #2a0b57;
-                  transition: .3s;
-                  border-radius: 28px;
-                }
-                .slider:before {
-                  position: absolute;
-                  content: "";
-                  height: 22px;
-                  width: 22px;
-                  left: 4px;
-                  bottom: 3px;
-                  background-color: #fff;
-                  transition: .3s;
-                  border-radius: 50%;
-                  box-shadow: 0 2px 6px rgba(42,11,87,0.13);
-                }
-                input:checked + .slider {
-                  background-color: #cd25f1;
-                }
-                input:checked + .slider:before {
-                  transform: translateX(26px);
-                }
-              </style>
-              <!-- MODE SLIDER END -->
-              <div class="form-group">
-                <label for="rid_file">RID Lookup File (CSV, recieved via 
-                  <a href="https://mail.google.com/" target="_blank">email</a>):
+            </h1>
+            
+            <!-- MODE SLIDER -->
+            <div class="form-group" id="mode-slider-group" style="margin-bottom: 35px;">                
+              <div style="display: flex; align-items: center; gap: 18px;">
+                <span id="mode-label-ridpid" style="font-weight: 600; color: #6502f5;">RID+PID Mode</span>
+                <label class="switch" style="margin: 0 8px;">
+                  <input type="checkbox" id="mode_slider" name="mode_slider">
+                  <span class="slider round"></span>
                 </label>
-                <input type="file" name="rid_file" id="rid_file" accept=".csv" required>
-              </div>
-              <div class="form-group" id="survey-loi-group" style="display:none;">
-                <br>
-                <label for="survey_loi" id="survey-loi-label">
-                    Survey Completion LOI (Get it from 
-                    <span id="surveyid-links">
-                      {% if top_surveyids and top_surveyids|length == 1 and top_surveyids[0] %}
-                        <a
-                          href="https://www.samplicio.us/fulcrum/next/surveys/{{ top_surveyids[0] }}/reports"
-                          target="_blank"
-                          title="Survey with most RIDs"
-                        >Marketplace</a>
-                      {% elif top_surveyids and top_surveyids|length > 1 %}
-                        Marketplace:
-                        {% for sid, count in top_surveyids|zip(top_counts) %}
-                            {% if sid %}
-                                <a
-                                  href="https://www.samplicio.us/fulcrum/next/surveys/{{ sid }}/reports"
-                                  target="_blank"
-                                  title="{% if loop.index == 1 %}Survey with most RIDs{% elif loop.index == 2 %}Survey with 2nd most RIDs{% elif loop.index == 3 %}Survey with 3rd most RIDs{% endif %}">
-                                  {{ sid }}
-                                </a>{% if not loop.last %},{% endif %}
-                            {% endif %}
-                        {% endfor %}
-                      {% else %}
-                        Marketplace
-                      {% endif %}
-                    </span>
-                    ):
-                </label>
-                <input type="number" name="survey_loi" id="survey_loi" value="" min="3" max="100" step="0.1" required>
-              </div>
-              <div class="form-group">
-                <br>
-                <label for="metrics_file">PID Metrics File (Excel, exported from 
-                  <a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">SSRS</a>):
-                </label>
-                <input type="file" name="metrics_file" id="metrics_file" accept=".xlsx" required>
-              </div>
-              <div id="show-advanced-btn-row" style="display:flex; justify-content: left; width: 100%; margin-top: 24px;">
-                <button type="button" id="toggle-advanced-btn" style="width: 80%; max-width: 350px; font-size: 1.1rem;">
-                  Show Advanced Options
-                </button>
+                <span id="mode-label-pidonly" style="font-weight: 600; color: #cd25f1;">PID only Mode</span>
               </div>
             </div>
-            <div class="right-section">
-              <div id="advanced-options" style="display: none;">
-                <div class="form-flex-row">
-                  <div class="form-group">
-                    <label for="conversion_rate_threshold">
-                        Poor Conversion Rate Threshold, <span style="color:#cd25f1;">(%) lower than:</span>
-                    </label>
-                    <input type="number" name="conversion_rate_threshold" id="conversion_rate_threshold" value="10" min="0" max="100" step="0.1" required>
-                  </div>
-                  <div class="form-group">
-                    <label for="security_terms_threshold">
-                        High Security Terms Threshold, <span style="color:#cd25f1;">(%) higher than:</span>
-                    </label>
-                    <input type="number" name="security_terms_threshold" id="security_terms_threshold" value="30" min="0" max="100" step="0.1" required>
-                  </div>
-                  <div class="form-group" id="speeder-group">
-                    <label for="speeder_multiplier">
-                        Speeder LOI - <span style="color:#cd25f1;">Divider</span> (session_loi &lt; actual_loi / <span style="color:#cd25f1;">this value</span>):
-                    </label>
-                    <input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required>
-                  </div>
-                  <div class="form-group" id="high-loi-group">
-                    <label for="high_loi_multiplier">
-                        High LOI, Distracted - <span style="color:#cd25f1;">Multiplier</span> (session_loi &gt; actual_loi * <span style="color:#cd25f1;">this value</span>):
-                    </label>
-                    <input type="number" name="high_loi_multiplier" id="high_loi_multiplier" value="3" min="1" max="10" step="0.1" required>
-                  </div>
-                  <div class="form-group">
-                    <label for="negative_recs_rate_threshold">
-                        High RR% Threshold, <span style="color:#cd25f1;">(%) higher than:</span>
-                    </label>
-                    <input type="number" name="negative_recs_rate_threshold" id="negative_recs_rate_threshold" value="15" min="0" max="100" step="0.1" required>
-                  </div>
-                  <div class="form-group" id="date-mode-group">
-                    <label style="margin-bottom: 0;">
-                      <span style="font-weight:600;">New User (bot?) check uses:</span>
-                      <span style="margin-left:10px;">
-                        <span id="date-mode-label-left" style="font-weight:600; color:#2a0b57; margin-right:8px;">Use only DATE</span>
-                        <label class="switch" style="vertical-align:middle;">
-                          <input type="checkbox" id="date_mode_switch" name="date_mode_switch" checked>
-                          <span class="slider round"></span>
-                        </label>
-                        <span id="date-mode-label-right" style="font-weight:600; color:#cd25f1; margin-left:8px;">Use DATE_TIME</span>
-                      </span>
-                    </label>
-                    <input type="hidden" name="use_datetime_for_newuser" id="use_datetime_for_newuser" value="1">
-                  </div>
-                  <div class="form-group" id="status26-group">
-                    <label>
-                      <input type="checkbox" name="process_status_26_only" id="process_status_26_only" checked>
-                      <span style="color:#cd25f1;">Process only status=26</span> (Reconciled to Term) rows
-                    </label>
-                  </div>
+            
+            <div class="form-group">
+              <label for="rid_file">RID Lookup File (CSV, received via 
+                <a href="https://mail.google.com/" target="_blank">email</a>):
+              </label>
+              <input type="file" name="rid_file" id="rid_file" accept=".csv" required>
+            </div>
+            
+            <!-- Survey LOI section -->
+            <div id="survey-loi-container" style="display:none;">                
+              <h3 style="color: #22223b; margin-bottom: 15px; font-size: 1.1rem;">Enter Survey `Completion` LOI Values (Get from Marketplace):</h3>
+              <div id="survey-loi-inputs">
+                <!-- Dynamic survey LOI inputs will be inserted here -->
+              </div>
+            </div>
+            
+            <div class="form-group">                
+              <label for="metrics_file">PID Metrics File (Excel, exported from <a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">SSRS</a>):
+              </label>
+              <input type="file" name="metrics_file" id="metrics_file" accept=".xlsx" required>
+            </div>
+            
+            <div id="show-advanced-btn-row" style="display:flex; justify-content: left; width: 100%; margin-top: 24px;">
+              <button type="button" id="toggle-advanced-btn" style="width: 80%; max-width: 350px; font-size: 1.1rem;">
+                Show Advanced Options
+              </button>
+            </div>
+          </div>
+          
+          <div class="right-section">
+            <div id="advanced-options" style="display: none;">
+              <div class="form-flex-row">
+                <div class="form-group">
+                  <label for="conversion_rate_threshold">
+                      Poor Conversion Rate Threshold, <span style="color:#cd25f1;">(%) lower than:</span>
+                  </label>
+                  <input type="number" name="conversion_rate_threshold" id="conversion_rate_threshold" value="10" min="0" max="100" step="0.1" required>
+                </div>
+                <div class="form-group">
+                  <label for="security_terms_threshold">
+                      High Security Terms Threshold, <span style="color:#cd25f1;">(%) higher than:</span>
+                  </label>
+                  <input type="number" name="security_terms_threshold" id="security_terms_threshold" value="30" min="0" max="100" step="0.1" required>
+                </div>
+                <div class="form-group" id="speeder-group">
+                  <label for="speeder_multiplier">
+                      Speeder LOI - <span style="color:#cd25f1;">Divider</span> (session_loi &lt; actual_loi / <span style="color:#cd25f1;">this value</span>):
+                  </label>
+                  <input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required>
+                </div>
+                <div class="form-group" id="high-loi-group">
+                  <label for="high_loi_multiplier">
+                      High LOI, Distracted - <span style="color:#cd25f1;">Multiplier</span> (session_loi &gt; actual_loi * <span style="color:#cd25f1;">this value</span>):
+                  </label>
+                  <input type="number" name="high_loi_multiplier" id="high_loi_multiplier" value="3" min="1" max="10" step="0.1" required>
+                </div>
+                <div class="form-group">
+                  <label for="negative_recs_rate_threshold">
+                      High RR% Threshold, <span style="color:#cd25f1;">(%) higher than:</span>
+                  </label>
+                  <input type="number" name="negative_recs_rate_threshold" id="negative_recs_rate_threshold" value="15" min="0" max="100" step="0.1" required>
                 </div>
               </div>
             </div>
           </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        </div>
+        
+        <!-- Bottom button row -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 15px;">
+          <!-- Left side buttons -->
+          <div style="display: flex; gap: 15px; align-items: center;">
             <!-- Shutdown button for EXE mode -->
             <button type="button" id="shutdown-btn" onclick="shutdownApp()" style="background-color: #dc3545; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; display: none;">
               Exit Application
             </button>
-            <input type="submit" id="process-btn" value="Process Files & Download Report" style="font-size: 1.3rem; padding: 18px 60px; width: 60%; max-width: 500px; font-weight: bold; letter-spacing: 1px;">
+            
+            <!-- Dark mode toggle button -->
+            <button type="button" id="dark-mode-toggle" style="background:#f4f7fa; color:#2a0b57; border:1px solid #cd25f1; border-radius:18px; padding:6px 18px; font-size:1rem; font-weight:600; cursor:pointer;">
+              🌙 Dark Mode
+            </button>
           </div>
-        </form>
-        <!-- Spinner overlay -->
-        <div id="processing-overlay">
-            <div style="display: flex; flex-direction: column; align-items: center;">
-                <div class="spinner"></div>
-                <div class="processing-text">Processing... </br>Please wait.</div>
-            </div>
-        </div>
-        <script>
-          const ridFileInput = document.getElementById('rid_file');
-          const metricsFileInput = document.getElementById('metrics_file');
-          const surveyLoiGroup = document.getElementById('survey-loi-group');
-          const showAdvancedBtnRow = document.getElementById('show-advanced-btn-row');
-          const toggleBtn = document.getElementById('toggle-advanced-btn');
-          const advOptions = document.getElementById('advanced-options');
-          const mainFlexRow = document.getElementById('main-flex-row');
-          const processBtn = document.getElementById('process-btn');
-          const status26Checkbox = document.getElementById('process_status_26_only');
-          const loiInput = document.getElementById('survey_loi');
-          // REPLACE pidOnlyCheckbox with modeSlider
-          const modeSlider = document.getElementById('mode_slider');
-          const dateModeSwitch = document.getElementById('date_mode_switch');
-          const useDatetimeInput = document.getElementById('use_datetime_for_newuser');
-          function isPidOnlyMode() { return modeSlider.checked; }
-          let advVisible = false;
-
-          // Message area for JS alerts
-          let jsMsgDiv = document.getElementById('js-msg-div');
-          if (!jsMsgDiv) {
-            jsMsgDiv = document.createElement('div');
-            jsMsgDiv.id = 'js-msg-div';
-            jsMsgDiv.style.marginBottom = '16px';
-            document.querySelector('.container').insertBefore(jsMsgDiv, document.querySelector('form'));
-          }
-
-          // Accumulate messages in an array
-          let jsMessages = [];
-
-          function showJsMessages() {
-            if (jsMessages.length === 0) {
-              jsMsgDiv.innerHTML = '';
-              return;
-            }
-            jsMsgDiv.innerHTML = `<div class="flash-messages">${jsMessages.map(m => `<li class="${m.type}">${m.text}</li>`).join('')}</div>`;
-          }
-          function addJsMessage(msg, type='error') {
-            jsMessages.push({text: msg, type: type});
-            showJsMessages();
-          }
-          function clearJsMessages() {
-            jsMessages = [];
-            showJsMessages();
-          }
-
-          // Toggle advanced options visibility
-          toggleBtn.addEventListener('click', function() {
-            advVisible = !advVisible;
-            advOptions.style.display = advVisible ? 'block' : 'none';
-            mainFlexRow.classList.toggle('adv-hidden', !advVisible);
-            toggleBtn.textContent = advVisible ? 'Hide Advanced Options' : 'Show Advanced Options';
-          });
-
-          // Store parsed data for cross-file checks
-          let ridData = null;
-          let ridStatus26Count = 0;
-          let ridPIDs = [];
-          let ridSurveyCounts = [];
-          let ridSurveyLinksHtml = '';
-          let metricsData = null;
-          let metricsPIDs = [];
-
-          function showLoiGroup() {
-            if (!isPidOnlyMode() && ridData) {
-                surveyLoiGroup.style.display = 'block';
-                loiInput.setAttribute('required', 'required');
-            } else {
-                surveyLoiGroup.style.display = 'none';
-                loiInput.removeAttribute('required');
-            }
-          }
-
-          // Add LOI value tracking and validation
-          let hasValidLoi = false;
-
-          loiInput.addEventListener('input', function() {
-              const value = parseFloat(this.value);
-              hasValidLoi = !isNaN(value) && value >= 3 && value <= 100;
-              updateProcessBtnState();
-          });
-
-          // Update the updateProcessBtnState function:
-          function updateProcessBtnState() {
-            let disabled = false;
-            let tooltip = "";
-            
-            if (isPidOnlyMode()) {
-                if (!metricsData) {
-                    disabled = true;
-                    tooltip = "Please upload the PID Metrics file.";
-                }
-            } else {
-                // RID+PID mode checks
-                if (!ridData) {
-                    disabled = true;
-                    tooltip = "Please upload the RID file.";
-                } else if (!metricsData) {
-                    disabled = true;
-                    tooltip = "Please upload the PID Metrics file.";
-                } else if (!hasValidLoi) {
-                    disabled = true;
-                    tooltip = "Please enter a valid LOI value between 3 and 100.";
-                }
-            }
-
-            // Update button state
-            processBtn.disabled = disabled;
-            processBtn.title = disabled ? tooltip : "";
-            processBtn.style.cursor = disabled ? "not-allowed" : "pointer";
-          }
-
-          // File parsing function
-          function parseRIDFile(file) {
-            return new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = (e) => {
-                try {
-                  const csv = e.target.result;
-                  const lines = csv.split('\n');
-                  if (lines.length > 1) {
-                    resolve(lines);
-                  } else {
-                    reject('No data rows found in RID file');
-                  }
-                } catch (error) {
-                  reject(error);
-                }
-              };
-              reader.onerror = (error) => reject(error);
-              reader.readAsText(file);
-            });
-          }
-
-          // Update how ridData is processed
-          ridFileInput.addEventListener('change', async function(e) {
-  if (this.files.length > 0) {
-    try {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const text = e.target.result;
-        // Use SheetJS to parse CSV robustly
-        const workbook = XLSX.read(text, {type: 'string'});
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
-        // Find surveyid column (case-insensitive)
-        let surveyidKey = null;
-        if (json.length > 0) {
-          const keys = Object.keys(json[0]);
-          surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
-        }
-        let surveyIds = {};
-        if (surveyidKey) {
-          json.forEach(row => {
-            const sid = (row[surveyidKey] || '').trim();
-            if (sid) surveyIds[sid] = (surveyIds[sid] || 0) + 1;
-          });
-          const sortedPairs = Object.entries(surveyIds)
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 3);
-          const linksHtml = sortedPairs.map(([sid, count], index) => {
-            const tooltipText = index === 0 ? 
-              `Survey with most RIDs (${count})` :
-              index === 1 ? 
-                `Survey with 2nd most RIDs (${count})` :
-                `Survey with 3rd most RIDs (${count})`;
-            return `<a href="https://www.samplicio.us/fulcrum/next/surveys/${sid}/reports" 
-                      target="_blank" 
-                      title="${tooltipText}">${sid}</a>`;
-          }).join(', ');
-          document.getElementById('surveyid-links').innerHTML = 
-            sortedPairs.length ? 'Marketplace: ' + linksHtml : 'Marketplace';
-        } else {
-          document.getElementById('surveyid-links').innerHTML = 'Marketplace';
-        }
-        ridData = json;
-        showLoiGroup();
-        updateProcessBtnState();
-      };
-      reader.readAsText(this.files[0]);
-    } catch (error) {
-      document.getElementById('surveyid-links').innerHTML = 'Marketplace';
-    }
-  } else {
-    document.getElementById('surveyid-links').innerHTML = 'Marketplace';
-  }
-});
-          // Add metrics file handler after ridFileInput handler:
-          metricsFileInput.addEventListener('change', function(e) {
-              if (this.files.length > 0) {
-                  try {
-                      const reader = new FileReader();
-                      reader.onload = function(e) {
-                          metricsData = true; // Just need to know it's uploaded
-                          updateProcessBtnState();
-                      };
-                      reader.readAsArrayBuffer(this.files[0]); // Use ArrayBuffer for Excel files
-                  } catch (error) {
-                      console.error('Error reading Metrics file:', error);
-                      metricsData = null;
-                      updateProcessBtnState();
-                  }
-              } else {
-                  metricsData = null;
-                  updateProcessBtnState();
-              }
-          });
-
-          // Initialize visibility on page load
-          window.addEventListener('DOMContentLoaded', function() {
-            modeSlider.checked = false;  // Default to RID+PID mode
-            surveyLoiGroup.style.display = 'none';
-            updateProcessBtnState();
-          });
-
-          // Update mode slider logic to handle survey-loi-group
-          modeSlider.addEventListener('change', function() {
-            const ridGroup = ridFileInput.closest('.form-group');
-            const loiGroup = document.getElementById('survey-loi-group');
-            const speederGroup = document.getElementById('speeder-group');
-            const highLoiGroup = document.getElementById('high-loi-group');
-            const status26Group = document.getElementById('status26-group');
-            if (isPidOnlyMode()) {
-              ridFileInput.removeAttribute('required');
-              ridFileInput.disabled = true;
-              ridGroup.style.display = 'none';
-              ridFileInput.value = '';
-              loiInput.removeAttribute('required');
-              loiGroup.style.display = 'none';
-              if (speederGroup) speederGroup.style.display = 'none';
-              if (highLoiGroup) highLoiGroup.style.display = 'none';
-              if (status26Group) status26Group.style.display = 'none';
-            } else {
-              ridFileInput.setAttribute('required', 'required');
-              ridFileInput.disabled = false;
-              ridGroup.style.display = '';
-              // Show and add required to LOI input only if RID file is uploaded and parsed
-              if (ridData && ridData.length > 1) {
-                loiInput.setAttribute('required', 'required');
-                loiGroup.style.display = '';
-              } else {
-                loiInput.setAttribute('required', 'required');
-                loiGroup.style.display = 'none';
-              }
-              if (speederGroup) speederGroup.style.display = '';
-              if (highLoiGroup) highLoiGroup.style.display = '';
-              if (status26Group) status26Group.style.display = '';
-            }
-            showLoiGroup();
-            updateProcessBtnState();
-          });
-          // On page load, set required attribute and visibility correctly
-          window.addEventListener('DOMContentLoaded', function() {
-            // Always default slider to "RID+PID Mode" (unchecked)
-            modeSlider.checked = false;
-            const ridGroup = ridFileInput.closest('.form-group');
-            const loiGroup = document.getElementById('survey-loi-group');
-            // Always hide LOI input on page load
-            loiGroup.style.display = 'none';
-            if (isPidOnlyMode()) {
-              ridFileInput.removeAttribute('required');
-              ridFileInput.disabled = true;
-              ridGroup.style.display = 'none';
-              ridFileInput.value = '';
-              loiInput.removeAttribute('required');
-            } else {
-              ridFileInput.setAttribute('required', 'required');
-              ridFileInput.disabled = false;
-              ridGroup.style.display = '';
-              // Show and add required to LOI input only if RID file is uploaded and parsed
-              if (ridData && ridData.length > 1) {
-                loiInput.setAttribute('required', 'required');
-                loiGroup.style.display = '';
-              } else {
-                loiInput.setAttribute('required', 'required');
-                loiGroup.style.display = 'none';
-              }
-            }
-          });
-
-        // --- Save and restore form values using localStorage ---
-        function saveFormState() {
-          const form = document.getElementById('main-form');
-          const elements = form.querySelectorAll('input, select, textarea');
-          elements.forEach(el => {
-            if (el.name === 'survey_loi') return; // Do not save survey_loi
-            // Do NOT save mode_slider state
-            if (el.id === 'mode_slider') {
-              // skip saving
-            } else if (el.type === 'checkbox') {
-              localStorage.setItem('form_' + el.name, el.checked ? '1' : '0');
-            } else if (el.type === 'file') {
-              // Do not save file inputs
-            } else {
-              localStorage.setItem('form_' + el.name, el.value);
-            }
-          });
-          localStorage.setItem('form_date_mode_switch', dateModeSwitch.checked ? '1' : '0');
-        }
-        function restoreFormState() {
-          const form = document.getElementById('main-form');
-          const elements = form.querySelectorAll('input, select, textarea');
-          elements.forEach(el => {
-            if (el.name === 'survey_loi') return; // Do not restore survey_loi
-            // Do NOT restore mode_slider state
-            if (el.id === 'mode_slider') {
-              // skip restoring
-            } else if (el.type === 'checkbox') {
-              const val = localStorage.getItem('form_' + el.name);
-              if (val !== null) el.checked = val === '1';
-            } else if (el.type === 'file') {
-              // Do not restore file inputs
-            } else {
-              const val = localStorage.getItem('form_' + el.name);
-              if (val !== null) el.value = val;
-            }
-          });
-          const dateModeSaved = localStorage.getItem('form_date_mode_switch');
-          if (dateModeSaved !== null) {
-              dateModeSwitch.checked = dateModeSaved === '1';
-          }
-          syncDateModeSwitchAndHidden();
-        }
-        // Add red highlight for empty survey_loi
-        function updateSurveyLoiHighlight() {
-          const loiInput = document.getElementById('survey_loi');
-          if (!loiInput.value || isNaN(loiInput.value)) {
-            loiInput.style.borderColor = '#e53935';
-            loiInput.style.background = '#fff5f5';
-          } else {
-            loiInput.style.borderColor = '';
-            loiInput.style.background = '';
-          }
-        }
-        document.getElementById('survey_loi').addEventListener('input', updateSurveyLoiHighlight);
-        window.addEventListener('DOMContentLoaded', updateSurveyLoiHighlight);
-        // Save on change
-        document.getElementById('main-form').addEventListener('input', saveFormState);
-        document.getElementById('main-form').addEventListener('change', saveFormState);
-        // Restore on load
-        window.addEventListener('DOMContentLoaded', restoreFormState);
-
-        const infoIcon = document.getElementById('info-icon');
-        const infoPopup = document.getElementById('info-popup');
-        const infoPopupClose = document.getElementById('info-popup-close');
-
-        // Info popup handlers
-        infoIcon.addEventListener('click', function(e) {
-          e.preventDefault();
-          infoPopup.classList.add('visible');
-        });
-
-        infoIcon.addEventListener('keypress', function(e) {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            infoPopup.classList.add('visible');
-          }
-        });
-
-        infoPopupClose.addEventListener('click', function() {
-          infoPopup.classList.remove('visible');
-        });
-
-        // Close popup when clicking outside
-        document.addEventListener('click', function(e) {
-          if (!infoPopup.contains(e.target) && !infoIcon.contains(e.target)) {
-            infoPopup.classList.remove('visible');
-          }
-        });
-
-        // Close on Escape key
-        document.addEventListener('keydown', function(e) {
-          if (e.key === 'Escape' && infoPopup.classList.contains('visible')) {
-            infoPopup.classList.remove('visible');
-          }
-        });
-
-        // Ensure hidden input is in sync with switch on load
-        function syncDateModeSwitchAndHidden() {
-          useDatetimeInput.value = dateModeSwitch.checked ? "1" : "0";
-        }
-        // On page load, set default (checked = Use DATE_TIME)
-        window.addEventListener('DOMContentLoaded', function() {
-          // Always default slider to "RID+PID Mode" (unchecked)
-          modeSlider.checked = false;
-          const ridGroup = ridFileInput.closest('.form-group');
-          const loiGroup = document.getElementById('survey-loi-group');
-          // Always hide LOI input on page load
-          loiGroup.style.display = 'none';
-          if (isPidOnlyMode()) {
-            ridFileInput.removeAttribute('required');
-            ridFileInput.disabled = true;
-            ridGroup.style.display = 'none';
-            ridFileInput.value = '';
-            loiInput.removeAttribute('required');
-          } else {
-            ridFileInput.setAttribute('required', 'required');
-            ridFileInput.disabled = false;
-            ridGroup.style.display = '';
-            // Show and add required to LOI input only if RID file is uploaded and parsed
-            if (ridData && ridData.length > 1) {
-              loiInput.setAttribute('required', 'required');
-              loiGroup.style.display = '';
-            } else {
-              loiInput.setAttribute('required', 'required');
-              loiGroup.style.display = 'none';
-            }
-          }
-          syncDateModeSwitchAndHidden();
-        });
-
-        // On switch change, update hidden input and save state
-        dateModeSwitch.addEventListener('change', function() {
-          syncDateModeSwitchAndHidden();
-          saveFormState();
-        });
-
-        // Show shutdown button only in EXE mode
-          window.addEventListener('DOMContentLoaded', function() {
-            // Check if running as EXE (window title or other indicators)
-            const isEXE = window.navigator.userAgent.includes('Electron') || 
-                         window.location.protocol === 'file:' ||
-                         window.location.hostname === '127.0.0.1';
-            
-            if (isEXE) {
-              document.getElementById('shutdown-btn').style.display = 'block';
-            }
-          });
           
-          // Shutdown function
-          function shutdownApp() {
-            if (confirm('Are you sure you want to exit the application?')) {
-              fetch('/shutdown', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                }
-              }).then(() => {
-                alert('Application is shutting down. You can close this browser window.');
-                window.close();
-              }).catch(() => {
-                alert('Application is shutting down. You can close this browser window.');
-                window.close();
-              });
-            }
-          }
-
-        // Prevent default form submission and use AJAX to handle responses.
-        document.getElementById('main-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            document.getElementById('processing-overlay').style.display = 'flex';
-            const formData = new FormData(this);
-
-            fetch('/', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => {
-                if (response.ok) {
-                    // SUCCESS: Status is 200-299. This should be a file download.
-                    const disposition = response.headers.get('Content-Disposition');
-                    if (disposition && disposition.includes('attachment')) {
-                        return response.blob().then(blob => {
-                            const filenameMatch = disposition.match(/filename="?([^"]+)"?/);
-                            const filename = filenameMatch ? filenameMatch[1] : 'report.xlsx';
-                            const url = window.URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.style.display = 'none';
-                            a.href = url;
-                            a.download = filename;
-                            document.body.appendChild(a);
-                            a.click();
-                            window.URL.revokeObjectURL(url);
-                            a.remove();
-                            
-                            document.getElementById('processing-overlay').style.display = 'none';
-                            const flashContainer = document.querySelector('.flash-messages') || document.createElement('ul');
-                            if (!document.querySelector('.flash-messages')) {
-                                flashContainer.className = 'flash-messages';
-                                document.querySelector('.container').prepend(flashContainer);
-                            }
-                            flashContainer.innerHTML = `<li class="success">Processing complete! Your download has started.</li>`;
-                        });
-                    } else {
-                        // Unexpected 200 OK without a file. Treat as an error and reload.
-                        alert('An unexpected response was received from the server. The page will now reload.');
-                        window.location.reload();
-                    }
-                } else {
-                    // ERROR: Status is not OK (e.g., 400 or 500).
-                    // The backend has flashed the error message to the session.
-                    // Reload the page to display it.
-                    window.location.reload();
-                }
-            })
-            .catch((error) => {
-                console.error('Network or script error:', error);
-                alert('A critical network error occurred. Please check your connection and try again.');
-                document.getElementById('processing-overlay').style.display = 'none';
-            });
-        });
-        </script>
-        <!-- SheetJS for Excel parsing in browser -->
-        <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+          <!-- Empty div to push process button to the right -->
+          <div style="flex-grow: 1;"></div>
+          
+          <!-- Process button -->
+          <input type="submit" id="process-btn" value="Process Files & Download Report" style="font-size: 1.3rem; padding: 18px 60px; font-weight: bold; letter-spacing: 1px;">
+        </div>
+      </form>
+      
+      <!-- Spinner overlay -->
+      <div id="processing-overlay">
+          <div style="display: flex; flex-direction: column; align-items: center;">
+              <div class="spinner"></div>
+              <div class="processing-text">Processing... <br>Please wait.</div>
+          </div>
+      </div>
     </div>
+    
+    <!-- External Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   </body>
 </html>
