@@ -1,7 +1,7 @@
 # AI Coding Instructions for MPproV1
 
 ## Project Overview
-Flask-based survey data processor that analyzes RID lookup (CSV) and PID metrics (Excel) files to generate flagged observations in multi-sheet Excel reports. Supports dual deployment: standalone executable via PyInstaller and Google App Engine.
+Flask-based data processor that analyzes RID lookup (CSV) and PID metrics (Excel) files to generate flagged observations in multi-sheet Excel reports. Supports dual deployment: standalone executable via PyInstaller and Google App Engine.
 
 ## Architecture & Data Flow
 
@@ -10,6 +10,7 @@ Flask-based survey data processor that analyzes RID lookup (CSV) and PID metrics
 - **`survey_processor.py`**: Pure business logic for data processing, Excel generation, and observation flagging
 - **`run.py`**: Local development server with auto-browser opening
 - **`templates/index.html`**: Single-page form interface with dynamic UI sections
+- **`static/js/app.js`**: Handles frontend logic, including form validation, dynamic UI updates, and AJAX-based communication with the backend.
 
 ### Processing Modes
 1. **RID+PID Mode**: Merges RID lookup CSV with PID metrics Excel on `pid` column
@@ -39,6 +40,28 @@ Six flag types applied in sequence, with later flags overwriting `Observation` c
 - **Flags Pivot (Multi)**: Multi-flag analysis by supplier
 - **Pivot EntryDate × Supplier/Flags**: Time-series analysis
 - **DenyList_Draft**: Filtered flagged records for review
+
+## Frontend Logic
+
+### Dynamic Form Handling
+- **File Inputs**: Handles RID and PID file uploads with validation and dynamic UI updates.
+- **Survey LOI Inputs**: Dynamically generates input fields for survey LOI values based on uploaded RID data. Validates inputs to ensure values are within the range of 3-100.
+- **Mode Toggle**: The mode slider toggles between RID+PID and PID-only modes, dynamically updating the form's required fields and visibility of sections.
+
+### Dark Mode
+- **Toggle Logic**: Implements a dark mode toggle that updates the UI theme and persists the preference using `localStorage`.
+- **Styling**: Adjusts background and text colors for dark and light modes.
+
+### EXE Mode Detection
+- Detects if the application is running as a standalone executable (EXE) based on the user agent or protocol. Displays a shutdown button in EXE mode.
+
+### AJAX-Based Communication
+- **Form Submission**: Prevents default form submission and uses `fetch` to send form data to the backend. Handles responses for file downloads or error messages.
+- **File Download**: Processes server responses to initiate file downloads dynamically.
+
+### Error Handling
+- **Frontend Validation**: Validates user inputs and displays error messages dynamically.
+- **Debugging**: Includes debug logs for key events, such as button clicks and file uploads.
 
 ## Development Patterns
 

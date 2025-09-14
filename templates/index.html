@@ -7,7 +7,7 @@
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
     
     <!-- External CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -108,7 +108,8 @@
             </div>
             
             <div class="form-group">
-              <label for="rid_file">RID Lookup File (CSV, received via 
+              <label for="rid_file">
+                <a href="https://cintgroup.lightning.force.com/lightning/n/RID_Lookup" target="_blank">RID Lookup</a> File (CSV, received via 
                 <a href="https://mail.google.com/" target="_blank">email</a>):
               </label>
               <input type="file" name="rid_file" id="rid_file" accept=".csv" required>
@@ -207,6 +208,6 @@
     
     <!-- External Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   </body>
 </html>

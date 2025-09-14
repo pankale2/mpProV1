@@ -72,6 +72,22 @@ def read_metrics_file_from_stream(file_stream):
         # Convert PID to string immediately after reading and validation
         if 'pid' in df.columns:
             df['pid'] = df['pid'].apply(lambda x: str(x).strip() if pd.notnull(x) else '')
+        
+        # Convert % columns from text (e.g. "12.50%") to float (e.g. 12.50)
+        percent_cols = [
+            'security terms rate',
+            'negative_recs_rate',
+            'net recs rate',
+            'system_conversion_rate'
+        ]
+        for col in percent_cols:
+            if col in df.columns:
+                # If column is string and contains %, strip and convert
+                if df[col].dtype == object:
+                    df[col] = df[col].astype(str).str.replace('%', '').str.strip()
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                # REMOVED: No rounding or scaling
+
         return df
     except FileNotFoundError:
         raise ValueError("Could not find the specified sheet 'Marketplace Metrics by PID' in the Excel file.")
@@ -141,6 +157,7 @@ def apply_pid_observation_logic(
     for col in check_columns:
         df[col] = False
     
+    # All threshold comparisons below use values directly (0-100 scale)
     # 1. Poor Conversion Rate (0-100 scale) - Only if total_surveys_entered >= 5
     mask_poor_conversion = (df["system_conversion_rate"] < conversion_rate_threshold) & \
                           (df['total_surveys_entered'] >= 5)

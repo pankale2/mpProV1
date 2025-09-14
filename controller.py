@@ -89,13 +89,25 @@ def generate_survey_report(
                 "Check that your files have overlapping PIDs and correct formats."
             )
 
-        # Scale system_conversion_rate and net_recs_rate to 0-100 immediately after merging
-        if "system_conversion_rate" in merged_df.columns:
-            merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"] * 100
-        
-        # Scale NET RECS RATE using exact column name
-        if 'net recs rate' in merged_df.columns:
-            merged_df['net recs rate'] = merged_df['net recs rate'] * 100
+        # Remove scaling logic for percentage columns
+        # Ensure all four columns are in 0-100 scale
+
+        # Remove rounding for percent columns before writing to Excel
+        percent_cols = [
+            "system_conversion_rate",
+            "Security_Terms_Rate", 
+            "negative_recs_rate",
+            "net recs rate"
+        ]
+        for col in percent_cols:
+            if col in merged_df.columns:
+                merged_df[col] = pd.to_numeric(merged_df[col], errors='coerce')
+                # REMOVED: No rounding
+
+        # REMOVED: Do not divide thresholds - use them directly as provided from UI
+        # conversion_rate_threshold = conversion_rate_threshold / 100
+        # security_terms_threshold = security_terms_threshold / 100  
+        # negative_recs_rate_threshold = negative_recs_rate_threshold / 100
 
         # Apply observation logic and add check columns
         merged_df = apply_pid_observation_logic(
@@ -153,12 +165,13 @@ def generate_survey_report(
             merged_df["Diff Days"] = None
 
         # --- Round columns to 2 decimal places using exact column names ---
-        if "system_conversion_rate" in merged_df.columns:
-            merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"].round(2)
-        if 'net recs rate' in merged_df.columns:
-            merged_df['net recs rate'] = merged_df['net recs rate'].round(2)
-        if "Security_Terms_Rate" in merged_df.columns:
-            merged_df["Security_Terms_Rate"] = merged_df["Security_Terms_Rate"].round(2)
+        # REMOVED: All rounding logic for percentage columns
+        # if "system_conversion_rate" in merged_df.columns:
+        #     merged_df["system_conversion_rate"] = merged_df["system_conversion_rate"].round(2)
+        # if 'net recs rate' in merged_df.columns:
+        #     merged_df['net recs rate'] = merged_df['net recs rate'].round(2)
+        # if "Security_Terms_Rate" in merged_df.columns:
+        #     merged_df["Security_Terms_Rate"] = merged_df["Security_Terms_Rate"].round(2)
 
         # --- Add Flag_Count column at the end ---
         flag_columns = [
