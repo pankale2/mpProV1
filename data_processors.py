@@ -88,6 +88,8 @@ def read_metrics_file_from_stream(file_stream):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 # REMOVED: No rounding or scaling
 
+        print("DEBUG: metrics_df columns after reading:", df.columns.tolist())  # DEBUG
+
         return df
     except FileNotFoundError:
         raise ValueError("Could not find the specified sheet 'Marketplace Metrics by PID' in the Excel file.")
@@ -109,7 +111,10 @@ def apply_pid_observation_logic(
     high_loi_multiplier=3,
     negative_recs_rate_threshold=15,
     session_loi_checks=True,
-    use_datetime_for_newuser=True  # Kept for compatibility but ignored
+    use_datetime_for_newuser=True,
+    surveys_entered_threshold=5,
+    is_average_loi_mode=False,
+    average_loi_value=None
 ):
     """
     Applies all observation logic to the DataFrame in-place.
@@ -158,9 +163,9 @@ def apply_pid_observation_logic(
         df[col] = False
     
     # All threshold comparisons below use values directly (0-100 scale)
-    # 1. Poor Conversion Rate (0-100 scale) - Only if total_surveys_entered >= 5
+    # 1. Poor Conversion Rate (0-100 scale) - Only if total_surveys_entered > surveys_entered_threshold
     mask_poor_conversion = (df["system_conversion_rate"] < conversion_rate_threshold) & \
-                          (df['total_surveys_entered'] >= 5)
+                          (df['total_surveys_entered'] > surveys_entered_threshold)
     df.loc[mask_poor_conversion.fillna(False), "Poor_Conv_Rate"] = True
     df.loc[mask_poor_conversion.fillna(False), "Observation"] = "Poor Conversion Rate"
 
@@ -171,31 +176,39 @@ def apply_pid_observation_logic(
     df.loc[mask_new_user.fillna(False), "New_User_Bot"] = True
     df.loc[mask_new_user.fillna(False), "Observation"] = "New User (bot?)"
 
-    # 3. High Security Terms - Use pre-calculated rate, only if total_surveys_entered >= 5
+    # 3. High Security Terms - Use pre-calculated rate, only if total_surveys_entered > surveys_entered_threshold
     mask_high_security = (df['security terms rate'] > security_terms_threshold) & \
-                        (df['total_surveys_entered'] >= 5)
+                        (df['total_surveys_entered'] > surveys_entered_threshold)
     df.loc[mask_high_security.fillna(False), "High_Security"] = True
     df.loc[mask_high_security.fillna(False), "Observation"] = "High Security Terms"
 
-    # 4. Speeder & 5. High LOI (no survey count condition) - Survey-specific LOI
-    if session_loi_checks and survey_loi_mapping and speeder_multiplier and high_loi_multiplier:
-        if 'surveyid' in df.columns:
+    # 4. Speeder & 5. High LOI (no survey count condition)
+    if session_loi_checks and speeder_multiplier and high_loi_multiplier:
+        if is_average_loi_mode and average_loi_value is not None:
+            # Average LOI mode: use same value for all rows
+            print(f"DEBUG: Using average LOI value {average_loi_value} for all rows")
+            for idx, row in df.iterrows():
+                session_loi_val = row.get('session_loi')
+                if pd.notna(session_loi_val):
+                    # Speeder check
+                    if session_loi_val < (average_loi_value / speeder_multiplier):
+                        df.loc[idx, "Speeder"] = True
+                        df.loc[idx, "Observation"] = "Speeder"
+                    # High LOI check
+                    elif session_loi_val > (average_loi_value * high_loi_multiplier):
+                        df.loc[idx, "High_LOI"] = True
+                        df.loc[idx, "Observation"] = "High LOI, Distracted"
+        elif survey_loi_mapping and 'surveyid' in df.columns:
             print(f"DEBUG: Using survey-specific LOI values for {len(survey_loi_mapping)} surveys")
-            
-            # Apply survey-specific Speeder and High LOI checks
             for idx, row in df.iterrows():
                 survey_id = str(row['surveyid']).strip()
                 if survey_id in survey_loi_mapping:
                     actual_loi = survey_loi_mapping[survey_id]
                     session_loi_val = row.get('session_loi')
-                    
                     if pd.notna(session_loi_val):
-                        # Speeder check
                         if session_loi_val < (actual_loi / speeder_multiplier):
                             df.loc[idx, "Speeder"] = True
                             df.loc[idx, "Observation"] = "Speeder"
-                        
-                        # High LOI check
                         elif session_loi_val > (actual_loi * high_loi_multiplier):
                             df.loc[idx, "High_LOI"] = True
                             df.loc[idx, "Observation"] = "High LOI, Distracted"
@@ -206,10 +219,32 @@ def apply_pid_observation_logic(
     else:
         print("DEBUG: Session LOI checks disabled or survey_loi_mapping not provided")
 
-    # 6. High RR% - Use NET RECS RATE, only if total_surveys_entered >= 5
+    # 6. High RR% - Use NET RECS RATE, only if total_surveys_entered > surveys_entered_threshold
     mask_high_rr = (df['net recs rate'] > negative_recs_rate_threshold) & \
-                   (df['total_surveys_entered'] >= 5)
+                   (df['total_surveys_entered'] > surveys_entered_threshold)
     df.loc[mask_high_rr.fillna(False), "High_RR"] = True
     df.loc[mask_high_rr.fillna(False), "Observation"] = "High RR%"
     
+    # Remove all Python-side calculation for columns handled by Excel formulas:
+    # - Speeder, High_LOI, Poor_Conv_Rate, High_Security, New_User_Bot, High_RR, No_Enough_Data, Flag_Count, Tenure, PrioFlag, Tenure_Group, entrydate_split
+    # Only keep CompLOI assignment and any columns not handled by formulas.
+
+    # Assign CompLOI column
+    if 'security terms rate' in df.columns:
+        comp_loi_values = []
+        for idx, row in df.iterrows():
+            if is_average_loi_mode and average_loi_value is not None:
+                comp_loi = average_loi_value
+            else:
+                survey_id = str(row['surveyid']).strip() if 'surveyid' in row else None
+                comp_loi = survey_loi_mapping.get(survey_id, None) if survey_id else None
+            comp_loi_values.append(comp_loi)
+        df.insert(
+            loc=df.columns.get_loc('security terms rate') + 1,
+            column='CompLOI',
+            value=comp_loi_values
+        )
+    else:
+        raise ValueError("Missing 'security terms rate' column. Cannot add 'CompLOI' column.")
+
     return df

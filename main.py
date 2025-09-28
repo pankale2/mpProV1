@@ -79,23 +79,41 @@ def index():
             speeder_multiplier = float(request.form.get('speeder_multiplier', '3'))
             high_loi_multiplier = float(request.form.get('high_loi_multiplier', '4'))
             negative_recs_rate_threshold = float(request.form.get('negative_recs_rate_threshold', '15'))
+            surveys_entered_threshold = int(request.form.get('surveys_entered_threshold', '5'))
             pid_only_mode = 'pid_only_mode' in request.form
 
-            # NEW: Collect survey-specific LOI values
+            # NEW: Get LOI mode from form
+            loi_mode = request.form.get('loi_mode_slider', 'off')  # 'on' if checked, else 'off'
+            is_average_loi_mode = loi_mode == 'on'
+
+            # NEW: Collect LOI values
             survey_loi_mapping = {}
-            for key in request.form.keys():
-                if key.startswith('survey_loi_'):
-                    survey_id = key[11:]  # Remove 'survey_loi_' prefix
-                    try:
-                        loi_value = float(request.form.get(key))
-                        if 3 <= loi_value <= 100:
-                            survey_loi_mapping[survey_id] = loi_value
-                        else:
-                            flash(f'Invalid LOI value for Survey ID {survey_id}. Must be between 3 and 100.', 'error')
-                            return render_template('index.html', top_surveyids=[], top_counts=[]), 400
-                    except (ValueError, TypeError):
-                        flash(f'Invalid LOI value for Survey ID {survey_id}. Must be a number between 3 and 100.', 'error')
+            average_loi_value = None
+            if is_average_loi_mode:
+                # Only one input expected
+                try:
+                    average_loi_value = float(request.form.get('average_loi', ''))
+                    if not (3 <= average_loi_value <= 100):
+                        flash('Invalid Average LOI value. Must be between 3 and 100.', 'error')
                         return render_template('index.html', top_surveyids=[], top_counts=[]), 400
+                except (ValueError, TypeError):
+                    flash('Invalid Average LOI value. Must be a number between 3 and 100.', 'error')
+                    return render_template('index.html', top_surveyids=[], top_counts=[]), 400
+            else:
+                # Survey-wise LOI mode
+                for key in request.form.keys():
+                    if key.startswith('survey_loi_'):
+                        survey_id = key[11:]
+                        try:
+                            loi_value = float(request.form.get(key))
+                            if 3 <= loi_value <= 100:
+                                survey_loi_mapping[survey_id] = loi_value
+                            else:
+                                flash(f'Invalid LOI value for Survey ID {survey_id}. Must be between 3 and 100.', 'error')
+                                return render_template('index.html', top_surveyids=[], top_counts=[]), 400
+                        except (ValueError, TypeError):
+                            flash(f'Invalid LOI value for Survey ID {survey_id}. Must be a number between 3 and 100.', 'error')
+                            return render_template('index.html', top_surveyids=[], top_counts=[]), 400
 
             # If neither file is provided, error
             if (not rid_file_storage or rid_file_storage.filename == '') and (not metrics_file_storage or metrics_file_storage.filename == ''):
@@ -115,7 +133,9 @@ def index():
                         output_dir=OUTPUT_FOLDER,
                         conversion_rate_threshold=conversion_rate_threshold,
                         security_terms_threshold=security_terms_threshold,
-                        negative_recs_rate_threshold=negative_recs_rate_threshold
+                        negative_recs_rate_threshold=negative_recs_rate_threshold,
+                        surveys_entered_threshold=surveys_entered_threshold,
+                        is_pid_only_mode=True  # Added parameter
                     )
                     flash('Processing complete! Your download should start automatically.', 'success')
                     session['just_processed'] = True
@@ -141,7 +161,9 @@ def index():
                         output_dir=OUTPUT_FOLDER,
                         conversion_rate_threshold=conversion_rate_threshold,
                         security_terms_threshold=security_terms_threshold,
-                        negative_recs_rate_threshold=negative_recs_rate_threshold
+                        negative_recs_rate_threshold=negative_recs_rate_threshold,
+                        surveys_entered_threshold=surveys_entered_threshold,
+                        is_pid_only_mode=True  # Added parameter
                     )
                     flash('Processing complete! Your download should start automatically.', 'success')
                     session['just_processed'] = True
@@ -164,14 +186,15 @@ def index():
                 ), 400
 
             # NEW: Validate that we have LOI values for RID+PID mode
-            if not pid_only_mode and len(survey_loi_mapping) == 0:
-                top_surveyids, top_counts = get_top_surveyids_from_file(rid_file_storage) if rid_file_storage and rid_file_storage.filename else ([], [])
-                flash('No Survey LOI values provided. Please enter LOI values for all surveys after uploading the RID file.', 'error')
-                return render_template(
-                    'index.html',
-                    top_surveyids=top_surveyids,
-                    top_counts=top_counts
-                ), 400
+            if not pid_only_mode:
+                if is_average_loi_mode and average_loi_value is None:
+                    top_surveyids, top_counts = get_top_surveyids_from_file(rid_file_storage) if rid_file_storage and rid_file_storage.filename else ([], [])
+                    flash('No Average LOI value provided. Please enter a valid value.', 'error')
+                    return render_template('index.html', top_surveyids=top_surveyids, top_counts=top_counts), 400
+                if not is_average_loi_mode and len(survey_loi_mapping) == 0:
+                    top_surveyids, top_counts = get_top_surveyids_from_file(rid_file_storage) if rid_file_storage and rid_file_storage.filename else ([], [])
+                    flash('No Survey LOI values provided. Please enter LOI values for all surveys after uploading the RID file.', 'error')
+                    return render_template('index.html', top_surveyids=top_surveyids, top_counts=top_counts), 400
 
             # Secure filenames and save uploaded files temporarily
             rid_file_path = None
@@ -199,12 +222,17 @@ def index():
                 rid_file_storage.stream.seek(0)
                 metrics_file_storage.stream.seek(0)
                 report_path_final = controller.generate_survey_report(
-                    rid_file_storage.stream, metrics_file_storage.stream, survey_loi_mapping, OUTPUT_FOLDER,
+                    rid_file_storage.stream, metrics_file_storage.stream,
+                    survey_loi_mapping, OUTPUT_FOLDER,
                     conversion_rate_threshold=conversion_rate_threshold,
                     security_terms_threshold=security_terms_threshold,
                     speeder_multiplier=speeder_multiplier,
                     high_loi_multiplier=high_loi_multiplier,
-                    negative_recs_rate_threshold=negative_recs_rate_threshold
+                    negative_recs_rate_threshold=negative_recs_rate_threshold,
+                    surveys_entered_threshold=surveys_entered_threshold,
+                    is_pid_only_mode=False,
+                    is_average_loi_mode=is_average_loi_mode,
+                    average_loi_value=average_loi_value
                 )
 
                 # Read surveyids for UI (top 3 by count)
@@ -269,11 +297,11 @@ def index():
     # Only show messages if not a refresh after processing
     if session.pop('just_processed', None):
         from flask import get_flashed_messages
-        get_flashed_messages()
-        return render_template('index.html', top_surveyids=[], top_counts=[])
+        get_flashed_messages()  # clear any leftover flashes
+        return render_template('index.html', top_surveyids=[], top_counts=[], messages=[])  # ensure no stale msgs
 
-    # GET: no file uploaded yet, so pass empty lists
-    return render_template('index.html', top_surveyids=[], top_counts=[])
+    # GET: no file uploaded yet, so pass empty lists and no messages
+    return render_template('index.html', top_surveyids=[], top_counts=[], messages=[])
 
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
@@ -314,14 +342,6 @@ def generate_error_file(error_message):
         return render_template('index.html', top_surveyids=[], top_counts=[]), 500
 
 if __name__ == "__main__":
-    # Determine execution context
-    is_exe = getattr(sys, 'frozen', False)
-    
-    if is_exe:
-        # EXE mode: use production settings
-        app.run(host="127.0.0.1", port=5000, debug=False)
-    else:
-        # Development mode: Use run.py for development instead
-        print("For development, please use: python run.py")
-        print("This will provide better development experience with controlled browser opening.")
-        app.run(host="127.0.0.1", port=5000, debug=True)
+    # Remove app.run() block to rely on run.py/EXE as the launcher
+    pass
+

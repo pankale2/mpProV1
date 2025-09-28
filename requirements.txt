@@ -1,4 +1,5 @@
 Flask>=2.0.0
 pandas>=1.3.0
-openpyxl==3.0.10
+xlsxwriter>=3.0.0
 gunicorn>=20.0.0
+# openpyxl is not required for writing, only for reading .xlsx files with pandas if needed

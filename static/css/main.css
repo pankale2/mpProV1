@@ -6,6 +6,7 @@ body {
     background-color: #f4f7fa; 
     color: #22223b;
     line-height: 1.6;
+    font-size: 0.95rem; /* Reduced from default */
 }
 body.dark-mode {
     background-color: #181a20;
@@ -15,7 +16,7 @@ body.dark-mode {
     max-width: 1600px;
     margin: 5px auto;
     background-color: #fff; 
-    padding: 15px 15px; 
+    padding: 10px 10px; /* Reduced from 15px 15px */
     border-radius: 14px; 
     box-shadow: 0 6px 24px rgba(34, 34, 59, 0.08); 
 }
@@ -28,7 +29,7 @@ h1 {
     text-align: left;
     margin-bottom: 28px;
     margin-top: 5px;
-    font-size: 2.2rem;
+    font-size: 1.5rem; /* Reduced from 2.2rem */
     font-weight: 700;
     letter-spacing: 0.5px;
 }
@@ -39,6 +40,7 @@ body.dark-mode h1 {
 /* Add dark mode styling for survey LOI container heading */
 body.dark-mode #survey-loi-container h3 {
     color: #e0e0e0 !important;
+    font-size: 1rem !important; /* Reduced from 1.1rem */
 }
 
 .main-flex-row {
@@ -54,6 +56,9 @@ body.dark-mode #survey-loi-container h3 {
     border-right: 1px solid #e0e0e0;
     padding-right: 32px;
     flex: 1 1 0;
+}
+body.dark-mode .left-section {
+    border-right-color: #444;
 }
 .right-section {
     padding-left: 10px;
@@ -77,12 +82,12 @@ body.dark-mode #survey-loi-container h3 {
 }
 .form-group {
     flex: 1 1 250px;
-    min-width: 220px;
-    margin-bottom: 15px;
+    min-width: 180px; /* Reduced from 220px */
+    margin-bottom: 10px;  /* Reduced from 15px */
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
+    gap: 8px; /* Reduced from 12px */
 }
 /* Compact form-group for right-section to reduce label gap */
 .right-section .form-group {
@@ -93,48 +98,69 @@ body.dark-mode #survey-loi-container h3 {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
+    gap: 8px; /* Reduced from 12px */
 }
 /* Mode slider should maintain original column layout and dimensions */
 #mode-slider-group {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0 !important;
-    margin-bottom: 35px;
+    margin-bottom: 20px; /* Reduced from 35px */
 }
 
 #mode-slider-group > div {
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 10px; /* Reduced from 18px */
 }
 
-/* Override any inherited styles for mode slider components */
-#mode-slider-group .switch {
+/* Ensure both sliders have the same width and appearance */
+#mode-slider-group, #loi-mode-slider-group {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0 !important;
+    margin-bottom: 20px; /* Consistent margin */
+    width: 100%; /* Ensure full width for both */
+}
+
+#mode-slider-group > div,
+#loi-mode-slider-group > div {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Consistent gap */
+    width: auto;
+}
+
+#mode-slider-group .switch,
+#loi-mode-slider-group .switch {
     min-width: 54px !important;
     width: 54px !important;
     max-width: 54px !important;
 }
 
-#mode-slider-group .slider {
+#mode-slider-group .slider,
+#loi-mode-slider-group .slider {
     min-width: auto !important;
     width: auto !important;
     max-width: auto !important;
 }
 
-#mode-slider-group .slider.round {
+#mode-slider-group .slider.round,
+#loi-mode-slider-group .slider.round {
     min-width: auto !important;
     width: auto !important;
     max-width: auto !important;
     border-radius: 28px !important;
 }
 
-#mode-slider-group span {
+#mode-slider-group span,
+#loi-mode-slider-group span {
     min-width: auto !important;
     flex-shrink: 1 !important;
 }
 
-#mode-slider-group label {
+#mode-slider-group label,
+#loi-mode-slider-group label {
     min-width: auto !important;
     flex-shrink: 1 !important;
     margin: 0 !important;
@@ -144,7 +170,7 @@ label {
     margin-bottom: 0;
     font-weight: 600;
     color: #22223b;
-    font-size: 1rem;
+    font-size: 0.95rem; /* Reduced from 1rem */
     letter-spacing: 0.1px;
     min-width: 200px;
     flex-shrink: 0;
@@ -156,12 +182,12 @@ input[type="file"],
 input[type="number"] { 
     flex: 1;
     min-width: 50px;
-    padding: 10px 12px; 
+    padding: 6px 8px; /* Reduced from 10px 12px */
     border: 1px solid #bfc9d1;
     border-radius: 6px;
     box-sizing: border-box;
     margin-bottom: 0;
-    font-size: 1rem;
+    font-size: 0.95rem; /* Reduced from 1rem */
     background: #f8fafc;
     color: #22223b;
     transition: border-color 0.2s;
@@ -183,11 +209,11 @@ input[type="file"] {
 input[type="submit"], button[type="button"] { 
     background-color: #2a0b57;
     color: #fff; 
-    padding: 13px 22px; 
+    padding: 9px 16px; /* Reduced from 13px 22px */
     border: none; 
     border-radius: 6px; 
     cursor: pointer; 
-    font-size: 1.1rem;
+    font-size: 1rem; /* Reduced from 1.1rem */
     font-weight: 600;
     transition: background 0.2s, color 0.2s;
     margin-top: 10px;
@@ -202,7 +228,7 @@ input[type="submit"]:hover:enabled, button[type="button"]:hover:enabled {
     color: #fff;
 }
 body.dark-mode input[type="submit"]:hover:enabled, body.dark-mode button[type="button"]:hover:enabled {
-    background-color: #6502f5;
+    background-color: #cd25f1;
     color: #fff;
 }
 /* Spinner overlay styles */
@@ -344,12 +370,12 @@ body.dark-mode .flash-messages li.success {
     color: #b3eaf7;
 }
 @media (max-width: 900px) {
-    .container { max-width: 98vw; }
+    .container { max-width: 99vw; }
     .main-flex-row { flex-direction: column; gap: 0; }
     .left-section, .right-section { min-width: 0; padding: 0; border: none; }
 }
 @media (max-width: 600px) {
-    .info-popup { left: 0; min-width: 220px; max-width: 98vw; font-size: 0.95rem; }
+    .info-popup { font-size: 0.9rem; }
 }
 #date-mode-group .switch {
   width: 54px;
@@ -412,4 +438,52 @@ input:checked + .slider {
 }
 input:checked + .slider:before {
   transform: translateX(26px);
+}
+.form-subgroup {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 8px; /* Reduced from 10px */
+  margin-top: 5px;  /* Reduced from 10px */
+  background-color: #f8fafc;
+}
+
+body.dark-mode .form-subgroup {
+  border-color: #444;
+  background-color: #23263a;
+}
+
+.form-subgroup h4 {
+  margin-top: 0;
+  margin-bottom: 5px;  /* Reduced from 10px */
+  font-size: 1rem; /* Reduced from 1.1rem */
+  font-weight: 600;
+  color: #22223b;
+}
+
+body.dark-mode .form-subgroup h4 {
+  color: #e0e0e0;
+}
+
+/* Dark mode support for standalone h4 headers in advanced options */
+.right-section h4 {
+  color: #22223b;
+  margin-bottom: 2px;  /* Reduced from 5px */
+  font-size: 1rem; /* Reduced from 1.1rem */
+}
+
+body.dark-mode .right-section h4 {
+  color: #e0e0e0;
+}
+.historical-checks-divider {
+}
+
+body.dark-mode .historical-checks-divider {
+}
+.section-divider {
+  border-top: 1px solid #e0e0e0;
+  margin: 3px 0; /* Reduced from 5px 0 */
+}
+
+body.dark-mode .section-divider {
+  border-color: #444;
 }

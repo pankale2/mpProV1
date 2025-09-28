@@ -52,12 +52,12 @@
                   </li>
                   <li style="margin-top:8px;"><b>Observation Checks &amp;  Order:</b>
                     <ol style="margin: 6px 0 0 18px; padding-left:0;">
-                      <li><b>Poor Conversion Rate:</b> system_conversion_rate &lt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered ≥ 5</span></li>
+                      <li><b>Poor Conversion Rate:</b> system_conversion_rate &lt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered > 5</span></li>
                       <li><b>New User (bot?):</b> FIRST_ENTRY_DATE = LAST_ENTRY_DATE</li>
-                      <li><b>High Security Terms:</b> <code>security_terms_rate &gt; threshold</code> <span style="color:#cd25f1;">&amp; total_surveys_entered ≥ 5</span></li>
+                      <li><b>High Security Terms:</b> <code>security_terms_rate &gt; threshold</code> <span style="color:#cd25f1;">&amp; total_surveys_entered > 5</span></li>
                       <li><b>Speeder:</b> session_loi &lt; actual_loi/divider (RID+PID only)</li>
                       <li><b>High LOI, Distracted:</b> session_loi &gt; actual_loi×multiplier (RID+PID only)</li>
-                      <li><b>High RR%:</b> net_recs_rate &gt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered ≥ 5</span></li>                                              
+                      <li><b>High RR%:</b> net_recs_rate &gt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered > 5</span></li>                                              
                     </ol>
                     <p><b>If no checks match: <code style="color: #006400; font-weight:600;">-n/a-</code> is noted in the Observation column.</b></p>
                   </li>
@@ -116,8 +116,25 @@
             </div>
             
             <!-- Survey LOI section -->
-            <div id="survey-loi-container" style="display:none;">                
-              <h3 style="color: #22223b; margin-bottom: 15px; font-size: 1.1rem;">Enter Survey `Completion` LOI Values (Get from Marketplace):</h3>
+            <div id="survey-loi-container" style="display:none;">
+              <!-- LOI Mode Switch -->
+              <div class="form-group" id="loi-mode-slider-group" style="margin-bottom: 10px;">
+                <div style="display: flex; align-items: center; gap: 18px;">
+                  <span id="loi-mode-label-surveywise" style="font-weight: 600; color: #6502f5;">Survey-specific LOI</span>
+                  <label class="switch" style="margin: 0 8px;">
+                    <input type="checkbox" id="loi_mode_slider" name="loi_mode_slider">
+                    <span class="slider round"></span>
+                  </label>
+                  <span id="loi-mode-label-avg" style="font-weight: 600; color: #cd25f1;">Average LOI</span>
+                </div>
+              </div>
+              <h3 style="color: #22223b; margin-bottom: 15px; font-size: 1.1rem;">
+                Enter Survey LOI Values (to compare with RID session_loi)
+                <span id="marketplace-link-container" style="display:none;">
+                  (Get from <a id="marketplace-hyperlink" href="#" target="_blank" style="color: #cd25f1; font-weight: bold;">Marketplace</a>): 
+                </span>
+                <span id="marketplace-label" style="display:inline;">(Get from Marketplace):</span>
+              </h3>
               <div id="survey-loi-inputs">
                 <!-- Dynamic survey LOI inputs will be inserted here -->
               </div>
@@ -137,37 +154,49 @@
           </div>
           
           <div class="right-section">
+            
             <div id="advanced-options" style="display: none;">
               <div class="form-flex-row">
-                <div class="form-group">
-                  <label for="conversion_rate_threshold">
-                      Poor Conversion Rate Threshold, <span style="color:#cd25f1;">(%) lower than:</span>
-                  </label>
-                  <input type="number" name="conversion_rate_threshold" id="conversion_rate_threshold" value="10" min="0" max="100" step="0.1" required>
+                <h4 id="current-session-header" style="margin-top: 0; margin-bottom: 10px; font-size: 1.1rem; font-weight: 600; text-decoration: underline;">RID checks (current session):</h4>
+                <div class="form-subgroup">
+                  <div class="form-group" id="speeder-group">
+                    <label for="speeder_multiplier">
+                        <span>Speeder: flag if session_loi <span style="color:#cd25f1;">lesser than (Survey LOI divided by: </span><input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required><span style="color:#cd25f1;">)</span>
+                    </label>
+                    
+                  </div>
+                  <div class="form-group" id="high-loi-group">
+                    <label for="high_loi_multiplier">
+                        <span>Higher LOI: flag if session_loi <span style="color:#cd25f1;">greater than (Survey LOI multiplied by: </span><input type="number" name="high_loi_multiplier" id="high_loi_multiplier" value="3" min="1" max="10" step="0.1" required><span style="color:#cd25f1;">)</span>
+                    </label>                    
+                  </div>                  
                 </div>
-                <div class="form-group">
-                  <label for="security_terms_threshold">
-                      High Security Terms Threshold, <span style="color:#cd25f1;">(%) higher than:</span>
-                  </label>
-                  <input type="number" name="security_terms_threshold" id="security_terms_threshold" value="30" min="0" max="100" step="0.1" required>
+                
+                <div id="section-divider" class="section-divider"></div>
+                                                                                               
+                <!-- Historical checks subgroup -->
+                <h4 style="margin: 0; font-size: 1.1rem; font-weight: 600; text-decoration: underline;">PID checks (Historical data):</h4>
+                <div id="historical-checks-group" style="align-items: center; gap: 4px; margin-top: 0px;">    
+                  <span style="color:#cd25f1;">(check only if </span><span>"TOTAL_SURVEYS_ENTERED"</span><span style="color:#cd25f1;"> higher than:</span>
+                  <input type="number" name="surveys_entered_threshold" id="surveys_entered_threshold" value="5" min="4" max="20" step="1" required style="width: 10px; padding: 4px 8px; margin: 0;">
+                  <span style="color:#cd25f1;">)</span>
                 </div>
-                <div class="form-group" id="speeder-group">
-                  <label for="speeder_multiplier">
-                      Speeder LOI - <span style="color:#cd25f1;">Divider</span> (session_loi &lt; actual_loi / <span style="color:#cd25f1;">this value</span>):
-                  </label>
-                  <input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required>
-                </div>
-                <div class="form-group" id="high-loi-group">
-                  <label for="high_loi_multiplier">
-                      High LOI, Distracted - <span style="color:#cd25f1;">Multiplier</span> (session_loi &gt; actual_loi * <span style="color:#cd25f1;">this value</span>):
-                  </label>
-                  <input type="number" name="high_loi_multiplier" id="high_loi_multiplier" value="3" min="1" max="10" step="0.1" required>
-                </div>
-                <div class="form-group">
-                  <label for="negative_recs_rate_threshold">
-                      High RR% Threshold, <span style="color:#cd25f1;">(%) higher than:</span>
-                  </label>
-                  <input type="number" name="negative_recs_rate_threshold" id="negative_recs_rate_threshold" value="15" min="0" max="100" step="0.1" required>
+                <div class="form-subgroup">
+                  <div class="form-group">
+                    <label for="conversion_rate_threshold">
+                        Low Conversion Rate: flag if <span style="color:#cd25f1;">lower than:</span><input type="number" name="conversion_rate_threshold" id="conversion_rate_threshold" value="10" min="0" max="100" step="0.1" required><span style="color:#cd25f1;">%</span>
+                    </label>                    
+                  </div>
+                  <div class="form-group">
+                    <label for="security_terms_threshold">
+                        High Security Term Rate: flag if <span style="color:#cd25f1;">higher than:</span><input type="number" name="security_terms_threshold" id="security_terms_threshold" value="30" min="0" max="100" step="0.1" required><span style="color:#cd25f1;">%</span>
+                    </label>
+                  </div>
+                  <div class="form-group">
+                    <label for="negative_recs_rate_threshold">
+                        High Reversal Rate: flag if <span style="color:#cd25f1;">higher than:</span><input type="number" name="negative_recs_rate_threshold" id="negative_recs_rate_threshold" value="15" min="0" max="100" step="0.1" required><span style="color:#cd25f1;">%</span>
+                    </label>                    
+                  </div>
                 </div>
               </div>
             </div>

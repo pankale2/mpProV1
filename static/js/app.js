@@ -16,8 +16,19 @@ const darkModeToggle = document.getElementById('dark-mode-toggle');
 const infoIcon = document.getElementById('info-icon');
 const infoPopup = document.getElementById('info-popup');
 const infoPopupClose = document.getElementById('info-popup-close');
+const loiModeSlider = document.getElementById('loi_mode_slider');
+const loiModeLabelSurveywise = document.getElementById('loi-mode-label-surveywise');
+const loiModeLabelAvg = document.getElementById('loi-mode-label-avg');
+const marketplaceLinkContainer = document.getElementById('marketplace-link-container');
+const marketplaceHyperlink = document.getElementById('marketplace-hyperlink');
+const marketplaceLabel = document.getElementById('marketplace-label');
 
 function isPidOnlyMode() { return modeSlider.checked; }
+
+function isAverageLoiMode() {
+  return loiModeSlider && loiModeSlider.checked;
+}
+
 let advVisible = false;
 
 // Message area for JS alerts
@@ -81,75 +92,183 @@ function validateSurveyLoi(surveyId, value) {
     return isValid;
 }
 
-function createSurveyLoiInputs(surveyData) {
-    surveyLoiInputsDiv.innerHTML = '';
-    allSurveyIds = Object.keys(surveyData);
-    surveyLoiValid = {};
-    
-    // Sort surveys by occurrence count (descending)
-    const sortedSurveys = Object.entries(surveyData)
-        .sort(([,a], [,b]) => b - a);
-    
-    sortedSurveys.forEach(([surveyId, count]) => {
-        const inputGroup = document.createElement('div');
-        inputGroup.className = 'form-group';
-        
-        const label = document.createElement('label');
-        label.innerHTML = `Survey ID: <a href="https://www.samplicio.us/fulcrum/next/surveys/${surveyId}/reports" target="_blank" style="color: #cd25f1; font-weight: bold;">${surveyId}</a> <span style="color: #666;">(${count} RIDs)</span>:`;
-        
-        const input = document.createElement('input');
-        input.type = 'number';
-        input.name = `survey_loi_${surveyId}`;
-        input.id = `survey_loi_${surveyId}`;
-        input.min = '3';
-        input.max = '100';
-        input.step = '0.1';
-        input.required = true;
-        input.placeholder = 'Enter LOI (3-100)';
-        
-        // Add validation
-        input.addEventListener('input', function() {
-            const isValid = validateSurveyLoi(surveyId, this.value);
-            this.style.borderColor = isValid ? '' : '#e53935';
-            this.style.background = isValid ? '' : '#fff5f5';
-            updateProcessBtnState();
-        });
-        
-        inputGroup.appendChild(label);
-        inputGroup.appendChild(input);
-        surveyLoiInputsDiv.appendChild(inputGroup);
-        
-        // Initialize validation state
-        surveyLoiValid[surveyId] = false;
-    });
+// Helper to get surveyid with highest RID count
+function getTopSurveyId(surveyIdsObj) {
+  let maxCount = -1;
+  let topSurveyId = null;
+  for (const [sid, count] of Object.entries(surveyIdsObj)) {
+    if (count > maxCount) {
+      maxCount = count;
+      topSurveyId = sid;
+    }
+  }
+  return topSurveyId;
 }
 
-// Update the updateProcessBtnState function to check all survey LOI inputs:
+// Render LOI input(s) based on mode
+function renderLoiInputs(surveyData) {
+  surveyLoiInputsDiv.innerHTML = '';
+  allSurveyIds = Object.keys(surveyData);
+  surveyLoiValid = {};
+
+  if (isAverageLoiMode()) {
+    // Average LOI mode: show only one input
+    const inputGroup = document.createElement('div');
+    inputGroup.className = 'form-group';
+
+    const label = document.createElement('label');
+    label.innerHTML = `Estimated/Completion/Average/Median LOI:`;
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.name = 'average_loi';
+    input.id = 'average_loi';
+    input.min = '3';
+    input.max = '100';
+    input.step = '0.1';
+    input.required = true;
+    input.placeholder = 'Enter LOI (3-100)';
+
+    input.addEventListener('input', function() {
+      const numValue = parseFloat(this.value);
+      const isValid = !isNaN(numValue) && numValue >= 3 && numValue <= 100;
+      input.style.borderColor = isValid ? '' : '#e53935';
+      input.style.background = isValid ? '' : '#fff5f5';
+      surveyLoiValid['average_loi'] = isValid;
+      updateProcessBtnState();
+    });
+
+    inputGroup.appendChild(label);
+    inputGroup.appendChild(input);
+    surveyLoiInputsDiv.appendChild(inputGroup);
+
+    // Show "Marketplace" as hyperlink
+    marketplaceLabel.style.display = 'none';
+    marketplaceLinkContainer.style.display = 'inline';
+    // Set hyperlink to top surveyid
+    const topSurveyId = getTopSurveyId(surveyData);
+    if (topSurveyId) {
+      marketplaceHyperlink.href = `https://www.samplicio.us/fulcrum/next/surveys/${topSurveyId}/reports`;
+    } else {
+      marketplaceHyperlink.href = '#';
+    }
+  } else {
+    // Survey-wise LOI mode: show all inputs
+    marketplaceLabel.style.display = 'inline';
+    marketplaceLinkContainer.style.display = 'none';
+
+    // Sort surveys by occurrence count (descending)
+    const sortedSurveys = Object.entries(surveyData)
+      .sort(([,a], [,b]) => b - a);
+
+    sortedSurveys.forEach(([surveyId, count]) => {
+      const inputGroup = document.createElement('div');
+      inputGroup.className = 'form-group';
+
+      const label = document.createElement('label');
+      label.innerHTML = `Survey ID: <a href="https://www.samplicio.us/fulcrum/next/surveys/${surveyId}/reports" target="_blank" style="color: #cd25f1; font-weight: bold;">${surveyId}</a> <span style="color: #666;">(${count} RIDs)</span>:`;
+
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.name = `survey_loi_${surveyId}`;
+      input.id = `survey_loi_${surveyId}`;
+      input.min = '3';
+      input.max = '100';
+      input.step = '0.1';
+      input.required = true;
+      input.placeholder = 'Enter LOI (3-100)';
+
+      input.addEventListener('input', function() {
+        const isValid = validateSurveyLoi(surveyId, this.value);
+        this.style.borderColor = isValid ? '' : '#e53935';
+        this.style.background = isValid ? '' : '#fff5f5';
+        updateProcessBtnState();
+      });
+
+      inputGroup.appendChild(label);
+      inputGroup.appendChild(input);
+      surveyLoiInputsDiv.appendChild(inputGroup);
+
+      // Initialize validation state
+      surveyLoiValid[surveyId] = false;
+    });
+  }
+}
+
+// Update createSurveyLoiInputs to use renderLoiInputs
+function createSurveyLoiInputs(surveyData) {
+  renderLoiInputs(surveyData);
+}
+
+// Add LOI mode slider event
+if (loiModeSlider) {
+  loiModeSlider.addEventListener('change', function() {
+    if (ridData && allSurveyIds.length > 0) {
+      // Re-render LOI inputs on mode change
+      // surveyIds object: {surveyid: count, ...}
+      let surveyIds = {};
+      ridData.forEach(row => {
+        const keys = Object.keys(row);
+        const surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
+        if (surveyidKey) {
+          const sid = (row[surveyidKey] || '').trim();
+          if (sid && sid !== '') {
+            surveyIds[sid] = (surveyIds[sid] || 0) + 1;
+          }
+        }
+      });
+      renderLoiInputs(surveyIds);
+      updateProcessBtnState();
+    }
+  });
+}
+
+// Update updateProcessBtnState for Average LOI mode
 function updateProcessBtnState() {
   let disabled = false;
   let tooltip = "";
-  
+
+  // Validate Surveys entered Threshold - get the input element dynamically
+  const surveysEnteredThresholdInput = document.getElementById('surveys_entered_threshold');
+  if (surveysEnteredThresholdInput) {
+    const surveysThreshold = parseInt(surveysEnteredThresholdInput.value, 10);
+    if (isNaN(surveysThreshold) || surveysThreshold < 4 || surveysThreshold > 20) {
+      disabled = true;
+      tooltip = "Please enter a valid Surveys entered Threshold (4-20).";
+    }
+  }
+
   if (isPidOnlyMode()) {
-      if (!metricsData) {
-          disabled = true;
-          tooltip = "Please upload the PID Metrics file.";
-      }
+    if (!metricsData) {
+      disabled = true;
+      tooltip = "Please upload the PID Metrics file.";
+    }
   } else {
-      // RID+PID mode checks
-      if (!ridData) {
+    // RID+PID mode checks
+    if (!ridData) {
+      disabled = true;
+      tooltip = "Please upload the RID file.";
+    } else if (!metricsData) {
+      disabled = true;
+      tooltip = "Please upload the PID Metrics file.";
+    } else if (allSurveyIds.length > 0) {
+      if (isAverageLoiMode()) {
+        // Check single average LOI input
+        const avgLoiInput = document.getElementById('average_loi');
+        const isValid = avgLoiInput && !isNaN(parseFloat(avgLoiInput.value)) && parseFloat(avgLoiInput.value) >= 3 && parseFloat(avgLoiInput.value) <= 100;
+        if (!isValid) {
           disabled = true;
-          tooltip = "Please upload the RID file.";
-      } else if (!metricsData) {
+          tooltip = "Please enter a valid Average LOI value (3-100).";
+        }
+      } else {
+        // Check if all survey LOI inputs are valid
+        const invalidSurveys = allSurveyIds.filter(sid => !surveyLoiValid[sid]);
+        if (invalidSurveys.length > 0) {
           disabled = true;
-          tooltip = "Please upload the PID Metrics file.";
-      } else if (allSurveyIds.length > 0) {
-          // Check if all survey LOI inputs are valid
-          const invalidSurveys = allSurveyIds.filter(sid => !surveyLoiValid[sid]);
-          if (invalidSurveys.length > 0) {
-              disabled = true;
-              tooltip = `Please enter valid LOI values for all surveys. Missing/invalid: ${invalidSurveys.join(', ')}`;
-          }
+          tooltip = `Please enter valid LOI values for all surveys. Missing/invalid: ${invalidSurveys.join(', ')}`;
+        }
       }
+    }
   }
 
   // Update button state
@@ -183,58 +302,61 @@ function parseRIDFile(file) {
 // Update how ridData is processed
 ridFileInput.addEventListener('change', async function(e) {
   if (this.files.length > 0) {
-      try {
-          const reader = new FileReader();
-          reader.onload = function(e) {
-              const text = e.target.result;
-              const workbook = XLSX.read(text, {type: 'string'});
-              const sheetName = workbook.SheetNames[0];
-              const sheet = workbook.Sheets[sheetName];
-              const json = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
-              
-              // Find surveyid column (case-insensitive)
-              let surveyidKey = null;
-              if (json.length > 0) {
-                  const keys = Object.keys(json[0]);
-                  surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
-              }
-              
-              let surveyIds = {};
-              if (surveyidKey) {
-                  json.forEach(row => {
-                      const sid = (row[surveyidKey] || '').trim();
-                      if (sid && sid !== '') {
-                          surveyIds[sid] = (surveyIds[sid] || 0) + 1;
-                      }
-                  });
-              }
-              
-              ridData = json;
-              
-              // Create survey LOI inputs if surveys found
-              if (Object.keys(surveyIds).length > 0) {
-                  createSurveyLoiInputs(surveyIds);
-              }
-              
-              showLoiGroup();
-              updateProcessBtnState();
-          };
-          reader.readAsText(this.files[0]);
-      } catch (error) {
-          console.error('Error parsing RID file:', error);
-          ridData = null;
+    try {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const workbook = XLSX.read(text, {type: 'string'});
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
+
+        // Find surveyid column (case-insensitive)
+        let surveyidKey = null;
+        if (json.length > 0) {
+          const keys = Object.keys(json[0]);
+          surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
+        }
+
+        let surveyIds = {};
+        if (surveyidKey) {
+          json.forEach(row => {
+            const sid = (row[surveyidKey] || '').trim();
+            if (sid && sid !== '') {
+              surveyIds[sid] = (surveyIds[sid] || 0) + 1;
+            }
+          });
+        }
+
+        ridData = json;
+
+        // Create survey LOI inputs if surveys found
+        if (Object.keys(surveyIds).length > 0) {
+          allSurveyIds = Object.keys(surveyIds); // <-- Ensure allSurveyIds is set
+          renderLoiInputs(surveyIds);
+        } else {
           allSurveyIds = [];
-          surveyLoiValid = {};
-          showLoiGroup();
-          updateProcessBtnState();
-      }
-  } else {
+        }
+
+        showLoiGroup(); // <-- Call after allSurveyIds is set and inputs rendered
+        updateProcessBtnState();
+      };
+      reader.readAsText(this.files[0]);
+    } catch (error) {
+      console.error('Error parsing RID file:', error);
       ridData = null;
       allSurveyIds = [];
       surveyLoiValid = {};
-      surveyLoiInputsDiv.innerHTML = '';
       showLoiGroup();
       updateProcessBtnState();
+    }
+  } else {
+    ridData = null;
+    allSurveyIds = [];
+    surveyLoiValid = {};
+    surveyLoiInputsDiv.innerHTML = '';
+    showLoiGroup();
+    updateProcessBtnState();
   }
 });
 
@@ -259,12 +381,15 @@ metricsFileInput.addEventListener('change', function(e) {
     }
 });
 
-// Update mode slider logic to handle survey-loi-container
+// Update mode slider logic to handle Current session checks subgroup
 modeSlider.addEventListener('change', function() {
   const ridGroup = ridFileInput.closest('.form-group');
   const loiContainer = document.getElementById('survey-loi-container');
   const speederGroup = document.getElementById('speeder-group');
   const highLoiGroup = document.getElementById('high-loi-group');
+  
+  // Find the Current session checks subgroup by looking for the parent .form-subgroup of speeder-group
+  const currentSessionSubgroup = speederGroup ? speederGroup.closest('.form-subgroup') : null;
   
   if (isPidOnlyMode()) {
     ridFileInput.removeAttribute('required');
@@ -276,14 +401,24 @@ modeSlider.addEventListener('change', function() {
     surveyLoiInputsDiv.innerHTML = '';
     allSurveyIds = [];
     surveyLoiValid = {};
-    if (speederGroup) speederGroup.style.display = 'none';
-    if (highLoiGroup) highLoiGroup.style.display = 'none';
+    // Hide the entire Current session checks subgroup
+    if (currentSessionSubgroup) {
+      currentSessionSubgroup.style.display = 'none';
+    }
+    // Hide the header and divider
+    document.getElementById('current-session-header').style.display = 'none';
+    document.getElementById('section-divider').style.display = 'none';
   } else {
     ridFileInput.setAttribute('required', 'required');
     ridFileInput.disabled = false;
     ridGroup.style.display = '';
-    if (speederGroup) speederGroup.style.display = '';
-    if (highLoiGroup) highLoiGroup.style.display = '';
+    // Show the entire Current session checks subgroup
+    if (currentSessionSubgroup) {
+      currentSessionSubgroup.style.display = '';
+    }
+    // Show the header and divider
+    document.getElementById('current-session-header').style.display = '';
+    document.getElementById('section-divider').style.display = '';
   }
   showLoiGroup();
   updateProcessBtnState();
@@ -305,6 +440,12 @@ function saveFormState() {
       localStorage.setItem('form_' + el.name, el.value);
     }
   });
+  
+  // Save surveys_entered_threshold separately
+  const surveysEnteredThresholdInput = document.getElementById('surveys_entered_threshold');
+  if (surveysEnteredThresholdInput) {
+    localStorage.setItem('surveys_entered_threshold', surveysEnteredThresholdInput.value);
+  }
 }
 
 function restoreFormState() {
@@ -324,6 +465,13 @@ function restoreFormState() {
       if (val !== null) el.value = val;
     }
   });
+  
+  // Restore surveys_entered_threshold separately
+  const savedThreshold = localStorage.getItem('surveys_entered_threshold');
+  const surveysEnteredThresholdInput = document.getElementById('surveys_entered_threshold');
+  if (savedThreshold !== null && surveysEnteredThresholdInput) {
+    surveysEnteredThresholdInput.value = savedThreshold;
+  }
 }
 
 // Info popup handlers

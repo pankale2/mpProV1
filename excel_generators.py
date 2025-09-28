@@ -1,925 +1,444 @@
 # excel_generators.py - Excel file creation, formatting, and pivot generation
 import pandas as pd
-from openpyxl.styles import PatternFill, Font, Alignment
-from openpyxl.formatting.rule import ColorScaleRule, Rule
-from openpyxl.styles.differential import DifferentialStyle
-import numpy as np
+import re
+from xlsxwriter.utility import xl_col_to_name
 
-def get_formatting_ranges(header, data_rows, total_column=None, has_col_total_row=False):
-    """
-    Helper function to calculate formatting exclusions and last data row for conditional formatting.
-    header: list of column names (Excel order, 1-based for openpyxl)
-    data_rows: total number of rows written (including totals row)
-    total_column: name of total column (e.g. 'Total_Flagged', 'Row Total')
-    has_col_total_row: True if the last row is a column total row
-    Returns: (exclude_cols, last_data_row)
-    """
-    exclude_cols = [1]  # Always exclude first column (index 1)
-    if '-n/a-' in header:
-        exclude_cols.append(header.index('-n/a-') + 1)
-    if total_column and total_column in header:
-        exclude_cols.append(header.index(total_column) + 1)
-    # Only format up to last data row (exclude column total row if present)
-    last_data_row = data_rows - 1 if has_col_total_row else data_rows
-    return exclude_cols, last_data_row
-
-def apply_conditional_formatting(worksheet, start_col, end_col, data_rows, exclude_cols=None, total_rows=None):
-    """Apply conditional formatting to specified range."""
-    if exclude_cols is None:
-        exclude_cols = []
-    # Guard: skip if no data rows
-    if data_rows < 2:
-        return
-    color_scale_rule = ColorScaleRule(
-        start_type='num',
-        start_value=0,
-        start_color='FFFFFF',
-        end_type='num',
-        end_value=total_rows,
-        end_color='f82b1b'
-    )
-    for col in range(start_col, end_col + 1):
-        if col not in exclude_cols:
-            col_letter = worksheet.cell(row=1, column=col).column_letter
-            cell_range = f"{col_letter}2:{col_letter}{data_rows}"
-            # Guard: skip if cell_range is not valid
-            if int(data_rows) < 2:
-                continue
-            try:
-                worksheet.conditional_formatting.add(cell_range, color_scale_rule)
-            except Exception as e:
-                # Log and skip this column if openpyxl fails
-                print(f"Conditional formatting skipped for {cell_range}: {e}")
-                continue
-
-def apply_na_column_formatting(worksheet, header):
-    """Apply dark green formatting to -n/a- column if present."""
-    print("DEBUG: Starting apply_na_column_formatting...")
-    print("DEBUG: Header type and content:", type(header), header)
-    
-    if '-n/a-' in header:
-        print("DEBUG: Found -n/a- in header")
-        na_col_idx = header.index('-n/a-') + 1  # openpyxl is 1-based
-        dark_green_font = Font(color="006400")
-        print(f"DEBUG: Applying formatting to column {na_col_idx}")
-        
-        try:
-            for row in worksheet.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=worksheet.max_row):
-                for cell in row:
-                    cell.font = dark_green_font
-            worksheet.cell(row=1, column=na_col_idx).font = dark_green_font
-            print("DEBUG: -n/a- column formatting completed successfully")
-        except Exception as e:
-            print(f"DEBUG: Error in apply_na_column_formatting: {e}")
-            raise
-    else:
-        print("DEBUG: -n/a- not found in header")
-
-def format_pivot_sheet(worksheet, header, data_rows, total_column, total_rows, has_col_total_row=True):
-    """Standardized pivot formatting: conditional formatting + -n/a- styling."""
-    print("DEBUG: Starting format_pivot_sheet...")
-    print("DEBUG: Header:", header)
-    print("DEBUG: Data rows:", data_rows)
-    print("DEBUG: Total column:", total_column)
-    
-    try:
-        exclude_cols, last_data_row = get_formatting_ranges(
-            header, data_rows, total_column=total_column, has_col_total_row=has_col_total_row
-        )
-        print("DEBUG: Got formatting ranges successfully")
-        
-        apply_conditional_formatting(
-            worksheet,
-            start_col=2,
-            end_col=len(header),
-            data_rows=last_data_row,
-            exclude_cols=exclude_cols,
-            total_rows=total_rows
-        )
-        print("DEBUG: Applied conditional formatting successfully")
-        
-        apply_na_column_formatting(worksheet, header)
-        print("DEBUG: format_pivot_sheet completed successfully")
-        
-    except Exception as e:
-        print(f"DEBUG: Error in format_pivot_sheet: {e}")
-        import traceback
-        traceback.print_exc()
-        raise
-
-def add_check_results_pivot(writer, df_merged):
-    """Add pivot table showing all check flags by supplier."""
-    workbook = writer.book
-    check_columns = [
-        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
-        "Speeder", "High_LOI", "High_RR"
+def get_combined_data_columns():
+    """Return the centralized column order for Combined Data sheet."""
+    return [
+        'rid', 'buyer_account_id', 'buyer_account', 'buyer_bu', 'buyer_bu_id', 'survey_client',
+        'client_responsestatusid', 'client_responsestatus', 'link_type_id', 'external_survey_name',
+        'fulcrum_responsestatusid', 'fulcrum_responsestatus', 'internal_survey_name', 'marketplace_projectid',
+        'marketplace_project', 'mid', 'parentsid', 'pid', 'respondentsid', 'entrydate', 'lastdate', 'id', 'name',
+        'supplier_bu_id', 'link_type', 'supplierid', 'survey_country', 'survey_country_langauge', 'survey_ccpi',
+        'survey_HASH_status', 'survey_SCCB_status', 'survey_https_status', 'project_manager', 'pm_email',
+        'survey_qcpi', 'total_system_entrants', 'total_completes', 'total_negative_recs',
+        'total_security_terms_on_marketplace_side', 'total_security_terms_on_client_side', 'total_security_terms',
+        'first_entry_time', 'last_exit_time', 'net_recs_rate', 'supplier_bu', 'first_entry_date', 'last_entry_date',
+        'Tenure', 'total_surveys_entered', 'system_conversion_rate', 'security_terms_rate', 'negative_recs_rate',
+        'surveyid', 'CompLOI', 'session_loi', 'speeder_multiplier', 'high_loi_multiplier', 'surveys_entered_threshold',
+        'conversion_rate_threshold', 'security_terms_threshold', 'negative_recs_rate_threshold',
+        'Speeder', 'High_LOI', 'Poor_Conv_Rate', 'High_Security', 'New_User_Bot', 'High_RR', 'No_Enough_Data',
+        'Flag_Count', 'PrioFlag', 'Tenure_Group', 'entrydate_split'  # Added 'entrydate_split'
     ]
-    
-    # Create pivot for check results
-    ws_pivot = workbook.create_sheet('Flags Pivot (Multi)')
-    
-    # Calculate counts by supplier
-    supplier_stats = []
-    for supplier in df_merged['supplier_bu'].unique():
-        supplier_df = df_merged[df_merged['supplier_bu'] == supplier]
-        
-        # Count rows with any True flag
-        has_any_flag = supplier_df[check_columns].any(axis=1)
-        total_flagged = has_any_flag.sum()
-        
-        # Count rows with no flags (true -n/a- count)
-        no_flags = ~has_any_flag
-        na_count = no_flags.sum()
-        
-        # Get individual flag counts
-        flag_counts = supplier_df[check_columns].sum()
-        
-        stats = {
-            'supplier_bu': str(supplier) if supplier is not None else '',  # Ensure string
-            '-n/a-': int(na_count),
-            **{col: int(flag_counts[col]) for col in check_columns},  # Ensure integers
-            'Total_Flagged': int(total_flagged)
-        }
-        supplier_stats.append(stats)
-    
-    pivot_df = pd.DataFrame(supplier_stats)
-    pivot_df = pivot_df.sort_values('Total_Flagged', ascending=False)
-    
-    # Add column totals with proper supplier_bu value
-    totals = pd.DataFrame([{
-        'supplier_bu': 'Column Total',
-        '-n/a-': pivot_df['-n/a-'].sum(),
-        **{col: pivot_df[col].sum() for col in check_columns},
-        'Total_Flagged': pivot_df['Total_Flagged'].sum()
-    }])
-    pivot_df = pd.concat([pivot_df, totals], ignore_index=True)
-    
-    # Arrange columns in desired order:
-    # 1. supplier_bu first
-    # 2. -n/a- second
-    # 3. check columns sorted by total count
-    # 4. Total_Flagged last
-    check_totals = pivot_df[check_columns].sum()
-    sorted_check_cols = sorted(check_columns, key=lambda x: check_totals[x], reverse=True)
-    
-    header = ['supplier_bu', '-n/a-'] + sorted_check_cols + ['Total_Flagged']
-    
-    # Write to Excel with formatting - ensure all values are properly typed
-    header_strings = [str(h) for h in header]  # Ensure header items are strings
-    ws_pivot.append(header_strings)
-    
-    # Write data rows with explicit type conversion
-    for _, row in pivot_df.iterrows():
-        row_values = []
-        for col in header:
-            value = row[col]
-            if col == 'supplier_bu':
-                # Ensure supplier_bu is string
-                row_values.append(str(value) if value is not None else '')
+
+def _normalize_name(s):
+    """Normalize column name for matching: lowercase + remove non-alphanumerics."""
+    if s is None:
+        return ''
+    return re.sub(r'[^0-9a-z]', '', str(s).lower())
+
+def reorder_and_fill_combined_data(
+    df,
+    surveys_entered_threshold=None,
+    conversion_rate_threshold=None,
+    security_terms_threshold=None,
+    negative_recs_rate_threshold=None
+):
+    """Reorder columns and fill missing columns with blanks for Combined Data sheet."""
+    # Normalize column names: replace spaces with underscores and lowercase all names
+    df.columns = df.columns.str.strip().str.replace(' ', '_').str.lower()
+
+    # Convert first_entry_date and last_entry_date to date format (YYYY-MM-DD)
+    date_columns = ['first_entry_date', 'last_entry_date']
+    for col in date_columns:
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%Y-%m-%d')
+
+    columns = get_combined_data_columns()
+    input_cols = list(df.columns)
+    norm_map = { _normalize_name(c): c for c in input_cols }
+    data = {}
+    n_rows = len(df)
+    for col in columns:
+        target_norm = _normalize_name(col)
+        if target_norm in norm_map:
+            src_col = norm_map[target_norm]
+            # For threshold columns, fill blank/empty/NaN values with provided value
+            if col in [
+                'surveys_entered_threshold',
+                'conversion_rate_threshold',
+                'security_terms_threshold',
+                'negative_recs_rate_threshold'
+            ]:
+                col_values = df[src_col].values.tolist()
+                fill_val = None
+                if col == 'surveys_entered_threshold':
+                    fill_val = surveys_entered_threshold
+                elif col == 'conversion_rate_threshold':
+                    fill_val = conversion_rate_threshold
+                elif col == 'security_terms_threshold':
+                    fill_val = security_terms_threshold
+                elif col == 'negative_recs_rate_threshold':
+                    fill_val = negative_recs_rate_threshold
+                # Fill blank/empty/NaN values with threshold
+                data[col] = [
+                    fill_val if (v is None or str(v).strip() == '' or (isinstance(v, float) and pd.isna(v))) else v
+                    for v in col_values
+                ] if fill_val is not None else col_values
             else:
-                # Ensure numeric values are proper integers
-                try:
-                    row_values.append(int(value) if not pd.isna(value) else 0)
-                except (ValueError, TypeError):
-                    row_values.append(0)
-        ws_pivot.append(row_values)
-    
-    # Set supplier_bu column width to 200 pixels
-    try:
-        excel_width = float(200.0 / 7.0)
-        ws_pivot.column_dimensions['A'].width = excel_width
-    except Exception as e:
-        print(f"DEBUG: Error setting supplier_bu column width: {e}")
-        pass
-
-    # Use helper for exclusions and data range
-    exclude_cols, last_data_row = get_formatting_ranges(
-        header, len(pivot_df), total_column='Total_Flagged', has_col_total_row=True
-    )
-    total_rows = len(df_merged)
-    apply_conditional_formatting(
-        ws_pivot,
-        start_col=2,
-        end_col=len(header),
-        data_rows=last_data_row,
-        exclude_cols=exclude_cols,
-        total_rows=total_rows
-    )
-    
-    # Apply existing -n/a- column formatting
-    apply_na_column_formatting(ws_pivot, header)
-
-def add_pivot_and_format(writer, df_merged):
-    """
-    Adds pivot tables to the Excel workbook and applies basic formatting.
-    """
-    workbook = writer.book
-
-    # --- Combined Data Sheet Formatting (from original) ---
-    ws_combined = writer.sheets.get('Combined Data') # Get the sheet by name
-    if ws_combined:
-        ws_combined.auto_filter.ref = ws_combined.dimensions
-        ws_combined.freeze_panes = ws_combined['A2']
-
-    # Debug: Print available columns before checking for required columns
-    print("DEBUG: Columns in merged DataFrame before pivot:", df_merged.columns.tolist())
-
-    # --- Create Pivot Table ---
-    if 'supplier_bu' not in df_merged.columns or 'Observation' not in df_merged.columns:
-        available_cols = df_merged.columns.tolist()
-        raise ValueError(
-            f"Required columns 'supplier_bu' or 'Observation' not found in processed data. "
-            f"Available columns: {available_cols}. This may indicate a problem with the input files or merge logic."
-        )
-
-    try:
-        print("DEBUG: Starting pivot creation...")
-        pivot = (
-            df_merged.groupby(['supplier_bu', 'Observation'])
-            .size()
-            .reset_index(name='Count')
-            .pivot(index='supplier_bu', columns='Observation', values='Count')
-            .fillna(0)
-            .astype(int)
-        )
-        print("DEBUG: Main pivot created successfully")
-
-        if pivot.empty:
-            raise ValueError("No data available for pivot table generation. Please check that your input files contain valid data.")
-
-        # Add row totals
-        pivot['Row Total'] = pivot.sum(axis=1)
-
-        # Add column totals
-        col_totals = pivot.sum(axis=0)
-        col_totals.name = 'Column Total'
-        pivot = pd.concat([pivot, pd.DataFrame([col_totals], index=['Column Total'])])
-
-        # Sort rows by row total (descending), keep total row at the end
-        if 'Row Total' in pivot.columns and 'Column Total' in pivot.index:
-            # Separate the 'Column Total' row
-            total_row_df = pivot.loc[['Column Total']]
-            pivot_data_rows = pivot.drop('Column Total')
-            
-            # Sort the data rows
-            pivot_data_rows = pivot_data_rows.sort_values(by='Row Total', ascending=False)
-            
-            # Concatenate sorted data rows with the total row
-            pivot = pd.concat([pivot_data_rows, total_row_df])
-
-        # Sort columns: "-n/a-" first, then by column total (descending), then Row Total last
-        cols = list(pivot.columns)
-        # Use .get(c, 0) for robustness if a column name is unexpectedly missing from col_totals
-        col_total_values = pivot.loc['Column Total'] if 'Column Total' in pivot.index else pivot.sum(axis=0)
-
-        obs_cols = [c for c in cols if c not in ['Row Total']]
-        sorted_obs_cols = []
-
-        if '-n/a-' in obs_cols:
-            sorted_obs_cols.append('-n/a-')
-            obs_cols_no_na = [c for c in obs_cols if c != '-n/a-']
+                data[col] = df[src_col].values.tolist()
         else:
-            obs_cols_no_na = list(obs_cols)
-            
-        # Sort remaining observation columns by their total count
-        obs_cols_sorted = sorted(obs_cols_no_na, key=lambda c: col_total_values.get(c, 0), reverse=True)
-        sorted_obs_cols.extend(obs_cols_sorted)
-
-        if 'Row Total' in cols:
-            sorted_obs_cols.append('Row Total')
-        
-        pivot = pivot[sorted_obs_cols]
-
-        # Write pivot table to new sheet
-        ws_pivot = workbook.create_sheet('Flags Pivot (Priority)')
-        
-        # Write header (supplier_bu and then pivot columns) - ensure strings
-        header = ['supplier_bu'] + [str(col) for col in pivot.columns]
-        ws_pivot.append(header)
-        
-        # Write data rows with explicit type conversion
-        for supplier_bu_index, row_data in pivot.iterrows():
-            row_values = [str(supplier_bu_index) if supplier_bu_index is not None else '']  # Ensure supplier name is string
-            for value in row_data.values:
-                try:
-                    row_values.append(int(value) if not pd.isna(value) else 0)  # Ensure integers
-                except (ValueError, TypeError):
-                    row_values.append(0)
-            ws_pivot.append(row_values)
-
-        # Set supplier_bu column width to 200 pixels
-        try:
-            excel_width = float(200.0 / 7.0)
-            ws_pivot.column_dimensions['A'].width = excel_width
-        except Exception as e:
-            print(f"DEBUG: Error setting supplier_bu column width: {e}")
-            pass
-
-        exclude_cols, last_data_row = get_formatting_ranges(
-            header, len(pivot), total_column='Row Total', has_col_total_row=True
-        )
-        total_rows = len(df_merged)
-        apply_conditional_formatting(
-            ws_pivot,
-            start_col=2,
-            end_col=len(header),
-            data_rows=last_data_row,
-            exclude_cols=exclude_cols,
-            total_rows=total_rows
-        )
-
-        # --- Style "-n/a-" column in dark green ---
-        dark_green_font = Font(color="006400")  # Hex for dark green
-
-        # Find the column index for "-n/a-"
-        try:
-            na_col_idx = header.index('-n/a-') + 1  # openpyxl is 1-based
-            for row in ws_pivot.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=ws_pivot.max_row):
-                for cell in row:
-                    cell.font = dark_green_font
-            # Also style the header cell
-            ws_pivot.cell(row=1, column=na_col_idx).font = dark_green_font
-        except ValueError:
-            pass  # "-n/a-" column not present
-
-        # --- Additional Pivots ---
-        print("DEBUG: Starting entrydate processing...")
-
-        # Helper: get just the date part from entrydate - robust conversion for mixed data types
-        def safe_convert_entrydate(x):
-            if pd.isna(x) or x is None:
-                return ''
-            # Convert to string and handle any data type
-            str_val = str(x)
-            # Split by 'T' and take first part (date portion)
-            return str_val.split('T')[0] if 'T' in str_val else str_val
-        
-        # Ensure entrydate column exists and convert it safely
-        if 'entrydate' in df_merged.columns:
-            print("DEBUG: Converting entrydate column...")
-            print("DEBUG: entrydate sample values before conversion:", df_merged['entrydate'].head().tolist())
-            print("DEBUG: entrydate data types:", df_merged['entrydate'].dtype)
-            df_merged['entrydate_only'] = df_merged['entrydate'].apply(safe_convert_entrydate)
-            print("DEBUG: entrydate_only sample values after conversion:", df_merged['entrydate_only'].head().tolist())
-        else:
-            print("DEBUG: entrydate column not found, creating empty column")
-            # If entrydate doesn't exist, create empty column
-            df_merged['entrydate_only'] = ''
-
-        # 1. Pivot: entrydate_only vs supplier_bu
-        if 'entrydate_only' in df_merged.columns and 'supplier_bu' in df_merged.columns:
-            print("DEBUG: Starting Pivot EntryDate x Supplier...")
-            print("DEBUG: supplier_bu sample values before conversion:", df_merged['supplier_bu'].head().tolist())
-            print("DEBUG: supplier_bu data types:", df_merged['supplier_bu'].dtype)
-            
-            # Ensure supplier_bu is also string type to avoid groupby issues
-            df_merged['supplier_bu'] = df_merged['supplier_bu'].astype(str)
-            print("DEBUG: supplier_bu converted to string")
-            
-            try:
-                print("DEBUG: Creating entrydate vs supplier pivot...")
-                pivot_entrydate_supplier = (
-                    df_merged.groupby(['entrydate_only', 'supplier_bu'])
-                    .size()
-                    .reset_index(name='Count')
-                    .pivot(index='entrydate_only', columns='supplier_bu', values='Count')
-                    .fillna(0)
-                    .astype(int)
-                )
-                print("DEBUG: Pivot EntryDate x Supplier created successfully")
-                
-                # Sort index by date (ascending)
-                pivot_entrydate_supplier = pivot_entrydate_supplier.sort_index()
-                
-                # Add row totals
-                pivot_entrydate_supplier['Row Total'] = pivot_entrydate_supplier.sum(axis=1)
-                
-                # Add column totals
-                col_totals = pivot_entrydate_supplier.sum()
-                col_totals.name = 'Column Total'
-                pivot_entrydate_supplier = pd.concat([pivot_entrydate_supplier, pd.DataFrame([col_totals], index=['Column Total'])])
-                
-                # Sort columns by total count (highest first) but keep Row Total last
-                cols = list(pivot_entrydate_supplier.columns)
-                if 'Row Total' in cols:
-                    cols.remove('Row Total')
-                col_totals_sorted = pivot_entrydate_supplier.loc[pivot_entrydate_supplier.index != 'Column Total', cols].sum()
-                sorted_cols = col_totals_sorted.sort_values(ascending=False).index
-                sorted_cols = list(sorted_cols) + ['Row Total']
-                pivot_entrydate_supplier = pivot_entrydate_supplier[sorted_cols]
-
-                ws_pivot1 = workbook.create_sheet('Pivot EntryDate x Supplier')
-                header = ['entrydate'] + [str(col) for col in pivot_entrydate_supplier.columns]  # Ensure strings
-                ws_pivot1.append(header)
-                
-                # Write data with explicit type conversion
-                for idx, row_data in pivot_entrydate_supplier.iterrows():
-                    row_values = [str(idx) if idx is not None else '']  # Ensure date string
-                    for value in row_data.values:
-                        try:
-                            row_values.append(int(value) if not pd.isna(value) else 0)
-                        except (ValueError, TypeError):
-                            row_values.append(0)
-                    ws_pivot1.append(row_values)
-
-                # Set all columns to 100 pixels width - fix potential float/int issue
-                excel_width = 100.0 / 7.0  # Ensure float division
-                for col_idx in range(1, len(header) + 1):
-                    col_letter = ws_pivot1.cell(row=1, column=col_idx).column_letter
-                    try:
-                        ws_pivot1.column_dimensions[col_letter].width = float(excel_width)
-                    except Exception as e:
-                        print(f"DEBUG: Error setting column width for {col_letter}: {e}")
-                        # Skip this column width setting if it fails
-                        pass
-
-                format_pivot_sheet(ws_pivot1, header, len(pivot_entrydate_supplier), 'Row Total', len(df_merged))
-
-            except Exception as e:
-                print(f"DEBUG: Error in Pivot EntryDate x Supplier: {e}")
-                raise
-
-        # 2. Pivot: entrydate_only vs Observation
-        if 'entrydate_only' in df_merged.columns and 'Observation' in df_merged.columns:
-            print("DEBUG: Starting Pivot EntryDate x Flags...")
-            print("DEBUG: Observation sample values before conversion:", df_merged['Observation'].head().tolist())
-            print("DEBUG: Observation data types:", df_merged['Observation'].dtype)
-            
-            # Ensure Observation is also string type
-            df_merged['Observation'] = df_merged['Observation'].astype(str)
-            print("DEBUG: Observation converted to string")
-            
-            try:
-                print("DEBUG: Creating entrydate vs observation pivot...")
-                pivot_entrydate_obs = (
-                    df_merged.groupby(['entrydate_only', 'Observation'])
-                    .size()
-                    .reset_index(name='Count')
-                    .pivot(index='entrydate_only', columns='Observation', values='Count')
-                    .fillna(0)
-                    .astype(int)
-                )
-                print("DEBUG: Pivot EntryDate x Flags created successfully")
-                
-                print("DEBUG: Starting pivot operations...")
-                # Sort index by date (ascending)
-                pivot_entrydate_obs = pivot_entrydate_obs.sort_index()
-                print("DEBUG: Index sorted")
-                
-                # Add row totals
-                pivot_entrydate_obs['Row Total'] = pivot_entrydate_obs.sum(axis=1)
-                print("DEBUG: Row totals added")
-                
-                # Add column totals
-                col_totals = pivot_entrydate_obs.sum()
-                col_totals.name = 'Column Total'
-                pivot_entrydate_obs = pd.concat([pivot_entrydate_obs, pd.DataFrame([col_totals], index=['Column Total'])])
-                print("DEBUG: Column totals added")
-                
-                # Sort columns: "-n/a-" first, then others by total (highest first), then Row Total last
-                cols = list(pivot_entrydate_obs.columns)
-                print("DEBUG: Columns before sorting:", cols)
-                sorted_cols = []
-                if '-n/a-' in cols:
-                    sorted_cols.append('-n/a-')
-                    cols.remove('-n/a-')
-                if 'Row Total' in cols:
-                    cols.remove('Row Total')
-                col_totals_sorted = pivot_entrydate_obs.loc[pivot_entrydate_obs.index != 'Column Total', cols].sum()
-                remaining_cols = col_totals_sorted.sort_values(ascending=False).index
-                sorted_cols.extend(remaining_cols)
-                sorted_cols.append('Row Total')
-                pivot_entrydate_obs = pivot_entrydate_obs[sorted_cols]
-                print("DEBUG: Columns sorted:", sorted_cols)
-
-                print("DEBUG: Creating worksheet...")
-                ws_pivot2 = workbook.create_sheet('Pivot EntryDate x Flags')
-                header = ['entrydate'] + [str(h) for h in pivot_entrydate_obs.columns]  # Ensure all strings
-                print("DEBUG: Final header:", header)
-                
-                ws_pivot2.append(header)
-                print("DEBUG: Header written to worksheet")
-                
-                # Write data with explicit type conversion
-                for idx, row in pivot_entrydate_obs.iterrows():
-                    row_values = [str(idx) if idx is not None else '']  # Ensure date string
-                    for value in row.values:
-                        try:
-                            row_values.append(int(value) if not pd.isna(value) else 0)
-                        except (ValueError, TypeError):
-                            row_values.append(0)
-                    ws_pivot2.append(row_values)
-                print("DEBUG: Data written to worksheet")
-                
-                # Fix column width setting
-                try:
-                    ws_pivot2.column_dimensions['A'].width = float(100.0 / 7.0)
-                except Exception as e:
-                    print(f"DEBUG: Error setting column width for column A: {e}")
-                    # Skip if column width setting fails
-                    pass
-                print("DEBUG: Column width set")
-
-                print("DEBUG: About to call format_pivot_sheet...")
-                format_pivot_sheet(ws_pivot2, header, len(pivot_entrydate_obs), 'Row Total', len(df_merged))
-                print("DEBUG: format_pivot_sheet completed")
-
-            except Exception as e:
-                print(f"DEBUG: Error in Pivot EntryDate x Flags: {e}")
-                import traceback
-                traceback.print_exc()
-                raise
-
-    except Exception as e:
-        print(f"DEBUG: Error in add_pivot_and_format at line: {e}")
-        import traceback
-        print("DEBUG: Full traceback:")
-        traceback.print_exc()
-        print(f"Error creating pivot table: {e}")
-        # Return early to prevent further errors
-        return
-
-def create_denylist_draft_sheet(workbook, merged_df):
-    """Create the DenyList_Draft sheet with proper formatting."""
-    print("DEBUG: Creating DenyList_Draft sheet...")
-    
-    # Define columns for DenyList_Draft
-    deny_cols = [
-        "pid", "supplierid", "name", "Observation",
-        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
-        "Speeder", "High_LOI", "High_RR", "Flag_Count",
-        "Diff Days"
-    ]
-    
-    # Only keep columns that exist in merged_df
-    deny_cols_present = [c for c in deny_cols if c in merged_df.columns]
-    deny_df = merged_df[deny_cols_present].copy()
-
-    # Ensure proper data types for DenyList_Draft
-    if 'pid' in deny_df.columns:
-        deny_df['pid'] = deny_df['pid'].astype(str).replace('nan', '')
-    if 'supplierid' in deny_df.columns:
-        deny_df['supplierid'] = deny_df['supplierid'].astype(str).replace('nan', '')
-    if 'name' in deny_df.columns:
-        deny_df['name'] = deny_df['name'].astype(str).replace('nan', '')
-    if 'Flag_Count' in deny_df.columns:
-        deny_df['Flag_Count'] = pd.to_numeric(deny_df['Flag_Count'], errors='coerce')
-    if 'Observation' in deny_df.columns:
-        deny_df['Observation'] = deny_df['Observation'].astype(str).replace('nan', '')
-
-    # Rename columns first, then insert Deny Criteria
-    col_map = {
-        "pid": "PID",
-        "supplierid": "Supplier ID", 
-        "name": "Supplier Name"
-    }
-    deny_df = deny_df.rename(columns=col_map)
-    
-    # Insert "Deny Criteria" column after "Supplier Name"
-    cols_list = list(deny_df.columns)
-    if "Supplier Name" in cols_list:
-        name_idx = cols_list.index("Supplier Name")
-        deny_df.insert(name_idx + 1, "Deny Criteria", 10)
-    else:
-        # Fallback: insert after second column
-        deny_df.insert(2, "Deny Criteria", 10)
-
-    # Sort by Flag_Count in descending order (highest values at the top)
-    if 'Flag_Count' in deny_df.columns:
-        deny_df = deny_df.sort_values('Flag_Count', ascending=False)
-        print("DEBUG: DenyList_Draft sorted by Flag_Count (descending)")
-    
-    # Create the sheet and write data properly with explicit data types
-    deny_sheet = workbook.create_sheet("DenyList_Draft")
-    
-    # Write headers - ensure all headers are strings
-    for col_idx, col_name in enumerate(deny_df.columns, 1):
-        header_value = str(col_name) if col_name is not None else ''
-        cell = deny_sheet.cell(row=1, column=col_idx, value=header_value)
-        cell.data_type = 's'
-    
-    # Write data rows with proper data types and string conversion
-    for row_idx, (_, row_data) in enumerate(deny_df.iterrows(), 2):
-        for col_idx, (col_name, value) in enumerate(row_data.items(), 1):
-            cell = deny_sheet.cell(row=row_idx, column=col_idx)
-            
-            # Ensure value is properly typed and converted
-            if col_name in ['Flag_Count', 'Deny Criteria', 'Diff Days']:
-                if pd.isna(value):
-                    cell.value = 0
-                else:
-                    try:
-                        cell.value = float(value) if value != '' else 0
-                    except (ValueError, TypeError):
-                        cell.value = 0
-                cell.data_type = 'n'  # Numeric
-            elif col_name in ['Poor_Conv_Rate', 'New_User_Bot', 'High_Security', 'Speeder', 'High_LOI', 'High_RR']:
-                # Ensure boolean values are properly handled
-                if pd.isna(value):
-                    cell.value = False
-                else:
-                    cell.value = bool(value)
-                cell.data_type = 'b'  # Boolean
+            # For threshold columns, fill with provided value if available
+            if col == 'surveys_entered_threshold' and surveys_entered_threshold is not None:
+                data[col] = [surveys_entered_threshold] * n_rows
+            elif col == 'conversion_rate_threshold' and conversion_rate_threshold is not None:
+                data[col] = [conversion_rate_threshold] * n_rows
+            elif col == 'security_terms_threshold' and security_terms_threshold is not None:
+                data[col] = [security_terms_threshold] * n_rows
+            elif col == 'negative_recs_rate_threshold' and negative_recs_rate_threshold is not None:
+                data[col] = [negative_recs_rate_threshold] * n_rows
             else:
-                # Convert to string and handle None/NaN
-                if pd.isna(value) or value is None:
-                    cell.value = ''
-                else:
-                    cell.value = str(value)
-                cell.data_type = 's'  # String
+                data[col] = [''] * n_rows
 
-    # Enable auto-filter and freeze first row
-    deny_sheet.auto_filter.ref = deny_sheet.dimensions
-    deny_sheet.freeze_panes = deny_sheet['A2']
-    
-    return deny_sheet, deny_df
+    out_df = pd.DataFrame(data)
 
-def apply_denylist_conditional_formatting(deny_sheet, deny_df, merged_df):
-    """Apply conditional formatting to DenyList_Draft sheet."""
-    print("DEBUG: Starting conditional formatting for DenyList_Draft sheet...")
-    deny_header = [cell.value for cell in deny_sheet[1]]
-    deny_n_rows = deny_sheet.max_row
-    print("DEBUG: DenyList_Draft header:", deny_header)
-    print("DEBUG: DenyList_Draft rows:", deny_n_rows)
-
-    # Helper to get min/max for DenyList_Draft data
-    def get_denylist_col_min_max(col_name):
-        if col_name in deny_df.columns:
-            col_data = pd.to_numeric(deny_df[col_name], errors='coerce')
-            col_min = np.nanmin(col_data)
-            col_max = np.nanmax(col_data)
-            return col_min, col_max
-        return None, None
-
-    # Apply conditional formatting for Diff Days and Flag_Count using same specs as Combined Data
-    deny_format_specs = {
-        "Flag_Count": {
-            "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 5, "reverse": False
-        },
-        "Diff Days": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        }
-    }
-
-    for col_name, spec in deny_format_specs.items():
-        if col_name in deny_header:
-            try:
-                col_idx = deny_header.index(col_name) + 1
-                col_letter = deny_sheet.cell(row=1, column=col_idx).column_letter
-                cell_range = f"{col_letter}2:{col_letter}{deny_n_rows}"
-
-                if "min" in spec and "max" in spec:
-                    col_min, col_max = spec["min"], spec["max"]
-                else:
-                    col_min, col_max = get_denylist_col_min_max(col_name)
-                    if col_min is None or col_max is None or col_min == col_max:
-                        print(f"DEBUG: Skipping {col_name} - no valid data range")
-                        continue
-                
-                color_rule = ColorScaleRule(
-                    start_type='num', start_value=col_min, start_color=spec["min_color"],
-                    end_type='num', end_value=col_max, end_color=spec["max_color"]
-                )
-                deny_sheet.conditional_formatting.add(cell_range, color_rule)
-                print(f"DEBUG: Applied conditional formatting to {col_name} in DenyList_Draft (range {col_min}-{col_max}).")
-            except Exception as e:
-                print(f"DEBUG: Could not apply conditional formatting to {col_name} in DenyList_Draft: {e}")
-                import traceback
-                traceback.print_exc()
-
-    # Apply red font formatting for TRUE values in boolean flag columns
-    print("DEBUG: Applying red font formatting for TRUE flag columns in DenyList_Draft...")
-    red_font = Font(color="FF0000")
-    red_dxf = DifferentialStyle(font=red_font)
-    
-    deny_flag_cols_to_format = [
-        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
-        "Speeder", "High_LOI", "High_RR"
+    # Coerce numeric columns (attempt) and boolean flags for better Excel formatting
+    numeric_targets = [
+        'total_system_entrants', 'total_completes', 'total_negative_recs',
+        'total_security_terms_on_marketplace_side', 'total_security_terms_on_client_side',
+        'total security terms', 'net_recs_rate',  # Removed 'first_entry_time', 'last_exit_time'
+        'total_surveys_entered', 'system_conversion_rate', 'security_terms_rate', 'negative_recs_rate',
+        'speeder_multiplier', 'high_loi_multiplier', 'conversion_rate_threshold',
+        'security_terms_threshold', 'negative_recs_rate_threshold', 'Flag_Count', 'Tenure'  # Changed 'Diff Days' to 'Tenure'
     ]
+    for nc in numeric_targets:
+        if nc in out_df.columns:
+            out_df[nc] = pd.to_numeric(out_df[nc], errors='coerce')
 
-    for col_name in deny_flag_cols_to_format:
-        if col_name in deny_header:
-            try:
-                col_idx = deny_header.index(col_name) + 1
-                col_letter = deny_sheet.cell(row=1, column=col_idx).column_letter
-                cell_range = f"{col_letter}2:{col_letter}{deny_n_rows}"
-                
-                # Rule to apply red font if cell value is TRUE
-                rule = Rule(type="expression", dxf=red_dxf)
-                rule.formula = [f'{col_letter}2=TRUE']
-                
-                deny_sheet.conditional_formatting.add(cell_range, rule)
-                print(f"DEBUG: Applied red font formatting to {col_name} for TRUE values in DenyList_Draft.")
-            except Exception as e:
-                print(f"DEBUG: Could not apply red font formatting for {col_name} in DenyList_Draft: {e}")
+    bool_targets = ['Speeder', 'High_LOI', 'Poor_Conv_Rate', 'High_Security', 'New_User_Bot', 'High_RR', 'No_Enough_Data']
+    for bc in bool_targets:
+        if bc in out_df.columns:
+            # convert truthy strings and numbers to boolean
+            out_df[bc] = out_df[bc].map(lambda v: bool(v) if pd.notna(v) and str(v).strip() != '' else False)
 
-    # Apply dark green formatting for "-n/a-" values in Observation column
-    print("DEBUG: Styling Observation column in DenyList_Draft...")
-    if "Observation" in deny_header:
-        obs_col_idx = deny_header.index("Observation") + 1
-        dark_green_font = Font(color="006400")
-        for row in deny_sheet.iter_rows(min_row=2, min_col=obs_col_idx, max_col=obs_col_idx, max_row=deny_sheet.max_row):
-            for cell in row:
-                if str(cell.value) == "-n/a-":
-                    cell.font = dark_green_font
-        print("DEBUG: Observation column styling completed in DenyList_Draft")
+    return out_df
 
-    print("DEBUG: DenyList_Draft conditional formatting completed")
-
-def apply_combined_data_formatting(combined_sheet, merged_df):
-    """Apply comprehensive conditional formatting to Combined Data sheet."""
-    print("DEBUG: Starting conditional formatting for Combined Data...")
+def write_combined_data_xlsx(
+    output_path,
+    df_merged,
+    surveys_entered_threshold=None,
+    conversion_rate_threshold=None,
+    security_terms_threshold=None,
+    negative_recs_rate_threshold=None,
+    is_pid_only_mode=False  # Added parameter
+):
+    """Write Combined Data sheet to Excel file with formulas for dynamic calculations."""
+    df_out = reorder_and_fill_combined_data(
+        df_merged,
+        surveys_entered_threshold=surveys_entered_threshold,
+        conversion_rate_threshold=conversion_rate_threshold,
+        security_terms_threshold=security_terms_threshold,
+        negative_recs_rate_threshold=negative_recs_rate_threshold
+    )
+    print("DEBUG: df_out security_terms_rate sample:", df_out['security_terms_rate'].head() if 'security_terms_rate' in df_out.columns else "not found")
     
-    header = [cell.value for cell in combined_sheet[1]]
-    n_rows = combined_sheet.max_row
-    print("DEBUG: Header for conditional formatting:", header)
-    print("DEBUG: Number of rows for formatting:", n_rows)
+    # Define formula columns that should not be written as data
+    formula_columns = ['Speeder', 'High_LOI', 'Poor_Conv_Rate', 'High_Security', 'New_User_Bot', 'High_RR', 'No_Enough_Data', 'Flag_Count', 'Tenure', 'PrioFlag', 'Tenure_Group', 'entrydate_split']  # Added 'entrydate_split'
+    
+    # Create a copy without formula columns for initial write
+    df_for_excel = df_out.copy()
+    for col in formula_columns:
+        if col in df_for_excel.columns:
+            df_for_excel[col] = ''  # Clear the column data
+    
+    with pd.ExcelWriter(output_path, engine='xlsxwriter') as writer:
+        df_for_excel.to_excel(writer, sheet_name='Combined Data', index=False)
+        workbook = writer.book
+        worksheet = writer.sheets['Combined Data']
 
-    # Helper to get min/max and ensure numeric
-    def get_col_min_max(col_name):
-        if col_name in merged_df.columns:
-            col_data = pd.to_numeric(merged_df[col_name], errors='coerce')
-            col_min = np.nanmin(col_data)
-            col_max = np.nanmax(col_data)
-            return col_min, col_max
-        return None, None
+        # Add hyperlinks for surveyid column
+        if 'surveyid' in df_out.columns:
+            surveyid_col_idx = df_out.columns.get_loc('surveyid')
+            fmt_hyper_num = workbook.add_format({'align': 'right', 'font_color': 'blue', 'underline': 1, 'num_format': '0'})
+            for row_idx in range(len(df_out)):
+                surveyid_value = df_out.at[row_idx, 'surveyid']
+                if pd.notna(surveyid_value) and str(surveyid_value).strip():
+                    url = f"https://www.samplicio.us/fulcrum/next/surveys/{surveyid_value}/reports"
+                    worksheet.write_url(row_idx + 1, surveyid_col_idx, url, string=str(surveyid_value), cell_format=fmt_hyper_num)
 
-    # Conditional formatting rules using exact column names from specification
-    format_specs = {
-        # system_conversion_rate: high is good, red for low (bad), white for high (good), scale 0-100
-        "system_conversion_rate": {
-            "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": True
-        },
-        # Security_Terms_Rate: high is bad, red for high (bad), white for low (good), scale 0-100
-        "Security_Terms_Rate": {
-            "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
-        },
-        # net recs rate: high is bad, red for high (bad), white for low (good), scale 0-100
-        "net recs rate": {
-            "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
-        },
-        # negative_recs_rate: high is bad, red for high (bad), white for low (good), scale 0-100
-        "negative_recs_rate": {
-            "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 100, "reverse": False
-        },
-        # Flag_Count: fixed scale 0-5, white for low, red for high
-        "Flag_Count": {
-            "min_color": "FFFFFF", "max_color": "f82b1b", "min": 0, "max": 5, "reverse": False
-        },
-        # client_responsestatusid: orange to pickle green
-        "client_responsestatusid": {
-            "min_color": "FFA500", "max_color": "4f9e4f", "reverse": False
-        },
-        # session_loi: 3-color scale yellow-white-yellow
-        "session_loi": {
-            "min_color": "FFFF00", "mid_color": "FFFFFF", "max_color": "FFFF00", "reverse": False, "three_color": True
-        },
-        # supplier_bu_id: sky blue to gray
-        "supplier_bu_id": {
-            "min_color": "87CEEB", "max_color": "808080", "reverse": False
-        },
-        # survey_ccpi: white to yellow
-        "survey_ccpi": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        # survey_qcpi: white to yellow
-        "survey_qcpi": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        # Diff Days: white to yellow
-        "Diff Days": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        # Updated PID sheet columns using exact names: white (0) to yellow (high values)
-        "total_system_entrants": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        "total_surveys_entered": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        "total_completes": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        "total_negative_recs": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        "total_security_terms_on_marketplace_side": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        "total_security_terms_on_client_side": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
-        },
-        "total security terms": {
-            "min_color": "FFFFFF", "max_color": "FFFF00", "reverse": False
+        # Define formats
+        fmt_num = workbook.add_format({'num_format': '0.00'})
+        fmt_int = workbook.add_format({'num_format': '0'})
+        fmt_bool = workbook.add_format({'align': 'center'})
+        fmt_header = workbook.add_format({'bold': True, 'align': 'left'})  # Left align headers
+        fmt_percent = workbook.add_format({'num_format': '0.00%'})
+        fmt_red = workbook.add_format({'font_color': 'red'})
+        fmt_text = workbook.add_format({'num_format': '@'})  # Text format
+        fmt_date = workbook.add_format({'num_format': 'yyyy-mm-dd'})  # Date format
+
+        # Apply header format
+        for col_idx, col_name in enumerate(df_out.columns):
+            worksheet.write(0, col_idx, col_name, fmt_header)
+
+        # Set column formats
+        for col_idx, col_name in enumerate(df_out.columns):
+            lc = _normalize_name(col_name)
+            width = 15
+            if lc in [ _normalize_name(n) for n in ['pid','supplierid','supplier_bu','name','supplier_bu_id','buyer_account'] ]:
+                width = 30
+            if lc in [ _normalize_name(n) for n in ['system_conversion_rate','security_terms_rate','negative_recs_rate','netrecsrate'] ]:
+                worksheet.set_column(col_idx, col_idx, max(width,12), fmt_percent)
+            elif lc in [ _normalize_name(n) for n in ['flag_count','total_system_entrants','total_completes','total_surveys_entered','tenure'] ]:  # Changed 'diffdays' to 'tenure'
+                worksheet.set_column(col_idx, col_idx, max(width,10), fmt_int)
+            elif col_name in ['Speeder','High_LOI','Poor_Conv_Rate','High_Security','New_User_Bot','High_RR','No Enough Data']:
+                worksheet.set_column(col_idx, col_idx, max(width,10), fmt_bool)
+                col_letter = xl_col_to_name(col_idx)
+                worksheet.conditional_format(f'{col_letter}2:{col_letter}{len(df_out)+1}', {
+                    'type': 'formula',
+                    'criteria': f'=${col_letter}2=TRUE',
+                    'format': fmt_red
+                })
+            elif col_name in ['first_entry_time', 'last_exit_time']:
+                worksheet.set_column(col_idx, col_idx, width, fmt_text)  # Ensure text format
+            elif col_name in ['first_entry_date', 'last_entry_date']:
+                worksheet.set_column(col_idx, col_idx, width, fmt_date)  # Ensure date format
+            else:
+                worksheet.set_column(col_idx, col_idx, width)
+
+        # Freeze header row
+        worksheet.freeze_panes(1, 0)
+        worksheet.autofilter(0, 0, len(df_out), len(df_out.columns)-1)
+
+        # Column letters mapping (fully updated from user)
+        col_letters = {
+            'rid': 'A',
+            'buyer_account_id': 'B',
+            'buyer_account': 'C',
+            'buyer_bu': 'D',
+            'buyer_bu_id': 'E',
+            'survey_client': 'F',
+            'client_responsestatusid': 'G',
+            'client_responsestatus': 'H',
+            'link_type_id': 'I',
+            'external_survey_name': 'J',
+            'fulcrum_responsestatusid': 'K',
+            'fulcrum_responsestatus': 'L',
+            'internal_survey_name': 'M',
+            'marketplace_projectid': 'N',
+            'marketplace_project': 'O',
+            'mid': 'P',
+            'parentsid': 'Q',
+            'pid': 'R',
+            'respondentsid': 'S',
+            'entrydate': 'T',
+            'lastdate': 'U',
+            'id': 'V',
+            'name': 'W',
+            'supplier_bu_id': 'X',
+            'link_type': 'Y',
+            'supplierid': 'Z',
+            'survey_country': 'AA',
+            'survey_country_langauge': 'AB',
+            'survey_ccpi': 'AC',
+            'survey_HASH_status': 'AD',
+            'survey_SCCB_status': 'AE',
+            'survey_https_status': 'AF',
+            'project_manager': 'AG',
+            'pm_email': 'AH',
+            'survey_qcpi': 'AI',
+            'total_system_entrants': 'AJ',
+            'total_completes': 'AK',
+            'total_negative_recs': 'AL',
+            'total_security_terms_on_marketplace_side': 'AM',
+            'total_security_terms_on_client_side': 'AN',
+            'total_security_terms': 'AO',
+            'first_entry_time': 'AP',
+            'last_exit_time': 'AQ',
+            'net_recs_rate': 'AR',
+            'supplier_bu': 'AS',
+            'first_entry_date': 'AT',
+            'last_entry_date': 'AU',
+            'Tenure': 'AV',
+            'total_surveys_entered': 'AW',
+            'system_conversion_rate': 'AX',
+            'security_terms_rate': 'AY',
+            'negative_recs_rate': 'AZ',
+            'surveyid': 'BA',
+            'CompLOI': 'BB',
+            'session_loi': 'BC',
+            'speeder_multiplier': 'BD',
+            'high_loi_multiplier': 'BE',
+            'surveys_entered_threshold': 'BF',
+            'conversion_rate_threshold': 'BG',
+            'security_terms_threshold': 'BH',
+            'negative_recs_rate_threshold': 'BI',
+            'Speeder': 'BJ',
+            'High_LOI': 'BK',
+            'Poor_Conv_Rate': 'BL',
+            'High_Security': 'BM',
+            'New_User_Bot': 'BN',
+            'High_RR': 'BO',
+            'No_Enough_Data': 'BP',
+            'Flag_Count': 'BQ',
+            'PrioFlag': 'BR',
+            'Tenure_Group': 'BS',
+            'entrydate_split': 'BT'
         }
-    }
 
-    print("DEBUG: Applying conditional formatting rules...")
-    for col_name, spec in format_specs.items():
-        if col_name in header:
-            print(f"DEBUG: Applying formatting to column: {col_name}")
-            try:
-                col_idx = header.index(col_name) + 1
-                col_letter = combined_sheet.cell(row=1, column=col_idx).column_letter
-                cell_range = f"{col_letter}2:{col_letter}{n_rows}"
-                
-                # Get min/max
-                if "min" in spec and "max" in spec:
-                    col_min, col_max = spec["min"], spec["max"]
-                else:
-                    col_min, col_max = get_col_min_max(col_name)
-                    if col_min is None or col_max is None or col_min == col_max:
-                        continue
-                        
-                # 3-color scale for session_loi
-                if spec.get("three_color"):
-                    col_median = np.nanmedian(pd.to_numeric(merged_df[col_name], errors='coerce'))
-                    color_rule = ColorScaleRule(
-                        start_type='num', start_value=col_min, start_color=spec["min_color"],
-                        mid_type='num', mid_value=col_median, mid_color=spec["mid_color"],
-                        end_type='num', end_value=col_max, end_color=spec["max_color"]
+        row_start = 2  # Define the starting row for formulas (row 1 is for headers)
+        row_end = len(df_out) + 1  # Define the ending row based on the number of rows in the DataFrame
+
+        # Formulas for each column (using explicit column letters)
+        formulas = {
+            'Speeder': '=IF({session_loi}{row}<({CompLOI}{row}/{speeder_multiplier}{row}), TRUE, FALSE)',
+            'High_LOI': '=IF({session_loi}{row}>({CompLOI}{row}*{high_loi_multiplier}{row}), TRUE, FALSE)',
+            'Poor_Conv_Rate': '=IF(AND({system_conversion_rate}{row}<({conversion_rate_threshold}{row}/100), {total_surveys_entered}{row}>{surveys_entered_threshold}{row}), TRUE, FALSE)',
+            'High_Security': '=IF(AND({security_terms_rate}{row}>({security_terms_threshold}{row}/100), {total_surveys_entered}{row}>{surveys_entered_threshold}{row}), TRUE, FALSE)',
+            'High_RR': '=IF(AND({negative_recs_rate}{row}>({negative_recs_rate_threshold}{row}/100), {total_surveys_entered}{row}>{surveys_entered_threshold}{row}), TRUE, FALSE)',
+            'No_Enough_Data': '=IF(AND(NOT({first_entry_date}{row}={last_entry_date}{row}), {total_surveys_entered}{row}<={surveys_entered_threshold}{row}), TRUE, FALSE)',
+            'New_User_Bot': '=IF({first_entry_date}{row}={last_entry_date}{row}, TRUE, FALSE)',
+            'Flag_Count': '=COUNTIF({Speeder}{row}:{High_RR}{row}, TRUE)',
+            'Tenure': '=DATEDIF({first_entry_date}{row}, TODAY(), "d")',
+            'PrioFlag': (
+                '=IF({High_RR}{row}, "High Reversal Rate", '
+                'IF({High_Security}{row}, "High Security Terms Rate", '
+                'IF({New_User_Bot}{row}, "New User, First survey, Bot suspect", '
+                'IF({High_LOI}{row}, "High LOI, Distracted", '
+                'IF({Speeder}{row}, "Low LOI, Speeder", '
+                'IF({Poor_Conv_Rate}{row}, "Low Conversion Rate", '
+                'IF({No_Enough_Data}{row}, "Recent User, No Enough Data", '
+                '"No Flags")))))))'
+            ),
+            'Tenure_Group': (  # Added formula for Tenure_Group
+                '=IF({Tenure}{row}<7, "Less than a week", '
+                'IF({Tenure}{row}<30, "Less than a month", '
+                'IF({Tenure}{row}<90, "Less than 3 months", '
+                'IF({Tenure}{row}<180, "Less than 6 months", '
+                'IF({Tenure}{row}<360, "Less than a year", "More than a year")))))'
+            ),
+            'entrydate_split': '=LEFT({entrydate}{row}, FIND("T", {entrydate}{row})-1)'  # Added formula for entrydate_split
+        }
+
+        # Write formulas for each row in each formula column
+        for row in range(row_start, row_end + 1):
+            for col_name, formula in formulas.items():
+                if col_name in col_letters:
+                    # Skip formulas for RID-dependent columns in PID-only mode
+                    if is_pid_only_mode and col_name in ['Speeder', 'High_LOI', 'entrydate_split']:
+                        continue  # Skip writing formula, leave cell empty
+                    cell = f'{col_letters[col_name]}{row}'
+                    # Remove any leading '=' or '@' from formula string
+                    f = formula.format(
+                        row=row,
+                        **{k: v for k, v in col_letters.items()}
                     )
-                else:
-                    if spec.get("reverse"):
-                        color_rule = ColorScaleRule(
-                            start_type='num',
-                            start_value=col_min,
-                            start_color=spec["max_color"],
-                            end_type='num',
-                            end_value=col_max,
-                            end_color=spec["min_color"]
-                        )
-                    else:
-                        color_rule = ColorScaleRule(
-                            start_type='num',
-                            start_value=col_min,
-                            start_color=spec["min_color"],
-                            end_type='num',
-                            end_value=col_max,
-                            end_color=spec["max_color"]
-                        )
-                
-                combined_sheet.conditional_formatting.add(cell_range, color_rule)
-                print(f"DEBUG: Successfully applied formatting to {col_name}")
-            except (TypeError, AttributeError) as e:
-                # Graceful degradation for openpyxl compatibility issues
-                print(f"DEBUG: Warning: Could not apply conditional formatting for {col_name}: {e}")
-                continue
-            except Exception as e:
-                print(f"DEBUG: Error applying formatting to {col_name}: {e}")
-                import traceback
-                traceback.print_exc()
-                raise
+                    if f.startswith('='):
+                        f = f[1:]
+                    if f.startswith('@'):
+                        f = f[1:]
+                    # Debugging: Print the generated formula for PrioFlag
+                    # if col_name == 'PrioFlag':
+                    #     print(f"DEBUG: Generated formula for PrioFlag at row {row}: {f}")
 
-    print("DEBUG: Styling -n/a- column in Combined Data...")
-    # Style -n/a- column in dark green if present
-    if "-n/a-" in header:
-        na_col_idx = header.index("-n/a-") + 1
-        dark_green_font = Font(color="006400")
-        for row in combined_sheet.iter_rows(min_row=2, min_col=na_col_idx, max_col=na_col_idx, max_row=combined_sheet.max_row):
-            for cell in row:
-                cell.font = dark_green_font
-        combined_sheet.cell(row=1, column=na_col_idx).font = dark_green_font
-        print("DEBUG: -n/a- column styling completed")
+                    worksheet.write_formula(cell, f)
 
-    print("DEBUG: Styling Observation column...")
-    # Style Observation column "-n/a-" values in dark green
-    if "Observation" in header:
-        obs_col_idx = header.index("Observation") + 1
-        dark_green_font = Font(color="006400")
-        for row in combined_sheet.iter_rows(min_row=2, min_col=obs_col_idx, max_col=obs_col_idx, max_row=combined_sheet.max_row):
-            for cell in row:
-                if str(cell.value) == "-n/a-":
-                    cell.font = dark_green_font
-                    
-    print("DEBUG: Applying conditional formatting for TRUE flag columns...")
-    red_font = Font(color="FF0000")
-    dxf = DifferentialStyle(font=red_font)
-    
-    flag_cols_to_format = [
-        "Poor_Conv_Rate", "New_User_Bot", "High_Security",
-        "Speeder", "High_LOI", "High_RR"
-    ]
+        # After writing formulas, set entrydate_split column to Date format
+        if 'entrydate_split' in df_out.columns:
+            entrydate_split_col_idx = df_out.columns.get_loc('entrydate_split')
+            worksheet.set_column(entrydate_split_col_idx, entrydate_split_col_idx, 15, fmt_date)
 
-    for col_name in flag_cols_to_format:
-        if col_name in header:
-            try:
-                col_idx = header.index(col_name) + 1
-                col_letter = combined_sheet.cell(row=1, column=col_idx).column_letter
-                cell_range = f"{col_letter}2:{col_letter}{n_rows}"
-                
-                # Rule to apply red font if cell value is TRUE
-                rule = Rule(type="expression", dxf=dxf)
-                # The formula applies to the top-left cell of the range.
-                rule.formula = [f'{col_letter}2=TRUE']
-                
-                combined_sheet.conditional_formatting.add(cell_range, rule)
-                print(f"DEBUG: Applied red font formatting to {col_name} for TRUE values.")
-            except Exception as e:
-                print(f"DEBUG: Could not apply red font formatting for {col_name}: {e}")
-                rule.formula = [f'{col_letter}2=TRUE']
-                
-                combined_sheet.conditional_formatting.add(cell_range, rule)
-                print(f"DEBUG: Applied red font formatting to {col_name} for TRUE values.")
-            except Exception as e:
-                print(f"DEBUG: Could not apply red font formatting for {col_name}: {e}")
+        # Conditional formatting for background color scales and font colors using updated column letters
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['supplier_bu_id'], end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",
+            'mid_color': '#FFFFA8',
+            'max_color': '#FF7EFF',
+        })  # supplier_bu_id
+
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['total_surveys_entered'], end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",
+            'mid_color': '#FFFFA8',
+            'max_color': '#FF7EFF',
+        })  # total_surveys_entered
+
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['entrydate_split'], end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",
+            'mid_color': '#FFFFA8',
+            'max_color': '#FF7EFF',
+        })  # entrydate_split
+
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['CompLOI'], end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",
+            'mid_color': '#FFFFA8',
+            'max_color': "#FF7EFF",
+        })  # CompLOI
+
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['client_responsestatusid'], end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",
+            'mid_color': '#FFFFA8',
+            'max_color': '#FF7EFF',
+        })  # client_responsestatusid
+
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['fulcrum_responsestatusid'], end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",
+            'mid_color': '#FFFFA8',
+            'max_color': '#FF7EFF',
+        })  # fulcrum_responsestatusid
+
+        # Conditional formatting for font colors
+        worksheet.conditional_format('BP2:BP{end}'.format(end=len(df_out) + 1), {
+            'type': 'formula',
+            'criteria': '=$BP2=TRUE',
+            'format': workbook.add_format({'font_color': "#666666"})  # Yellow for TRUE
+        })  # No_Enough_Data
+
+        worksheet.conditional_format('BR2:BR{end}'.format(end=len(df_out) + 1), {
+            'type': 'formula',
+            'criteria': '=$BR2="Recent User, No Enough Data"',
+            'format': workbook.add_format({'font_color': "#666666"})  # Yellow for "Recent User, No Enough Data"
+        })  # PrioFlag - Recent User, No Enough Data
+
+        worksheet.conditional_format('BR2:BR{end}'.format(end=len(df_out) + 1), {
+            'type': 'formula',
+            'criteria': '=$BR2="No Flags"',
+            'format': workbook.add_format({'font_color': '#026102'})  # Green for "No Flags"
+        })  # PrioFlag - No Flags
+
+        # Conditional formatting for 3-color scale font colors
+        worksheet.conditional_format('U2:U{end}'.format(end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",  # Blue
+            'mid_color': '#FFFFA8',  # Yellow
+            'max_color': '#FF7EFF',  # Purple
+        })  # supplier_bu_id
+
+        worksheet.conditional_format('AW2:AW{end}'.format(end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",  # Blue
+            'mid_color': '#FFFFA8',  # Yellow
+            'max_color': '#FF7EFF',  # Purple
+        })  # total_surveys_entered
+
+        worksheet.conditional_format('BT2:BT{end}'.format(end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",  # Blue
+            'mid_color': '#FFFFA8',  # Yellow
+            'max_color': '#FF7EFF',  # Purple
+        })  # entrydate_split
+
+        worksheet.conditional_format('BB2:BB{end}'.format(end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",  # Blue
+            'mid_color': '#FFFFA8',  # Yellow
+            'max_color': "#FF7EFF",  # Purple
+        })  # CompLOI
+
+        worksheet.conditional_format('H2:H{end}'.format(end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",  # Blue
+            'mid_color': '#FFFFA8',  # Yellow
+            'max_color': '#FF7EFF',  # Purple
+        })  # client_responsestatusid
+
+        worksheet.conditional_format('J2:J{end}'.format(end=len(df_out) + 1), {
+            'type': '3_color_scale',
+            'min_color': "#7C7CFC",  # Blue
+            'mid_color': '#FFFFA8',  # Yellow
+            'max_color': '#FF7EFF',  # Purple
+        })  # fulcrum_responsestatusid

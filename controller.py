@@ -2,16 +2,12 @@
 import pandas as pd
 from datetime import datetime
 import os
-from openpyxl.styles import Alignment
 import tempfile
+import re
 
 # Import the new modular components - FIXED PATHS
 from data_processors import read_rid_file_from_stream, read_metrics_file_from_stream, apply_pid_observation_logic
-from excel_generators import (
-    add_pivot_and_format, add_check_results_pivot, 
-    create_denylist_draft_sheet, apply_denylist_conditional_formatting,
-    apply_combined_data_formatting
-)
+from excel_generators import write_combined_data_xlsx
 
 def generate_survey_report(
     rid_file_stream, metrics_file_stream, survey_loi_mapping, output_dir,
@@ -20,7 +16,10 @@ def generate_survey_report(
     speeder_multiplier=3,
     high_loi_multiplier=3,
     negative_recs_rate_threshold=15,
-    use_datetime_for_newuser=True  # Kept for compatibility but ignored
+    surveys_entered_threshold=5,
+    is_pid_only_mode=False,  # Added parameter
+    is_average_loi_mode=False,
+    average_loi_value=None
 ):
     """
     Processes the survey files and generates an Excel report with observations and a pivot table.
@@ -29,13 +28,15 @@ def generate_survey_report(
     """
     try:
         # Validate survey_loi_mapping
-        if not survey_loi_mapping or not isinstance(survey_loi_mapping, dict):
-            raise ValueError("Survey LOI mapping is required and must be a dictionary of survey_id: loi_value pairs.")
-        
-        # Validate LOI values
-        for survey_id, loi_value in survey_loi_mapping.items():
-            if not (3 <= loi_value <= 100):
-                raise ValueError(f"Survey LOI for {survey_id} must be between 3 and 100, got {loi_value}.")
+        # Fix: Only require survey_loi_mapping if not in average LOI mode
+        if not is_average_loi_mode:
+            if not survey_loi_mapping or not isinstance(survey_loi_mapping, dict):
+                raise ValueError("Survey LOI mapping is required and must be a dictionary of survey_id: loi_value pairs.")
+            
+            # Validate LOI values
+            for survey_id, loi_value in survey_loi_mapping.items():
+                if not (3 <= loi_value <= 100):
+                    raise ValueError(f"Survey LOI for {survey_id} must be between 3 and 100, got {loi_value}.")
 
         # Read files with enhanced error handling
         try:
@@ -89,6 +90,10 @@ def generate_survey_report(
                 "Check that your files have overlapping PIDs and correct formats."
             )
 
+        # DEBUG: Check for security terms rate
+        print("DEBUG: merged_df columns after merge:", merged_df.columns.tolist())
+        print("DEBUG: sample security terms rate:", merged_df['security terms rate'].head() if 'security terms rate' in merged_df.columns else "not found")
+
         # Remove scaling logic for percentage columns
         # Ensure all four columns are in 0-100 scale
 
@@ -119,32 +124,24 @@ def generate_survey_report(
             high_loi_multiplier=high_loi_multiplier,
             negative_recs_rate_threshold=negative_recs_rate_threshold,
             session_loi_checks=True,
-            use_datetime_for_newuser=False  # Always date-only now
+            use_datetime_for_newuser=False,
+            surveys_entered_threshold=surveys_entered_threshold,
+            is_average_loi_mode=is_average_loi_mode,
+            average_loi_value=average_loi_value
         )
 
-        # --- Insert Security Terms Rate column using exact column name ---
-        if 'security terms rate' in merged_df.columns:
-            # Rename to standardized name
-            merged_df = merged_df.rename(columns={'security terms rate': 'Security_Terms_Rate'})
-            
-            # Move Security_Terms_Rate to after system_conversion_rate
-            cols = list(merged_df.columns)
-            if "system_conversion_rate" in cols and "Security_Terms_Rate" in cols:
-                security_rate_values = merged_df["Security_Terms_Rate"]
-                merged_df.drop("Security_Terms_Rate", axis=1, inplace=True)
-                cols = list(merged_df.columns)
-                idx = cols.index("system_conversion_rate") + 1
-                merged_df.insert(idx, "Security_Terms_Rate", security_rate_values)
+        # --- Rename 'Observation' to 'PrioFlag' immediately after observation logic ---
+        if 'Observation' in merged_df.columns:
+            merged_df = merged_df.rename(columns={'Observation': 'PrioFlag'})
 
-        # --- Insert first/last entry date match column using exact column names ---
-        if 'first_entry_date' in merged_df.columns and 'last_entry_date' in merged_df.columns:
-            match_col = (merged_df['first_entry_date'] == merged_df['last_entry_date'])
+        # --- Move Security_Terms_Rate to between net recs rate and system_conversion_rate ---
+        cols = list(merged_df.columns)
+        if 'Security_Terms_Rate' in cols and 'net recs rate' in cols and 'system_conversion_rate' in cols:
+            sec_val = merged_df['Security_Terms_Rate']
+            merged_df.drop('Security_Terms_Rate', axis=1, inplace=True)
             cols = list(merged_df.columns)
-            if 'last_entry_date' in cols:
-                idx = cols.index('last_entry_date') + 1
-                merged_df.insert(idx, "FirstLastDateMatch", match_col)
-            else:
-                merged_df["FirstLastDateMatch"] = match_col
+            net_idx = cols.index('net recs rate')
+            merged_df.insert(net_idx + 1, 'Security_Terms_Rate', sec_val)
 
         # --- Insert Diff Days column after last_entry_date using exact column names ---
         if 'first_entry_date' in merged_df.columns and 'last_entry_date' in merged_df.columns:
@@ -183,121 +180,137 @@ def generate_survey_report(
         # Remove blank columns (all values are NaN or empty) before writing to Excel
         merged_df = merged_df.dropna(axis=1, how='all')
 
-        # --- Generate Excel File ---
+        # Add user input columns at the end
+        merged_df['conversion_rate_threshold'] = conversion_rate_threshold
+        merged_df['security_terms_threshold'] = security_terms_threshold
+        merged_df['speeder_multiplier'] = speeder_multiplier
+        merged_df['high_loi_multiplier'] = high_loi_multiplier
+        merged_df['negative_recs_rate_threshold'] = negative_recs_rate_threshold
+        merged_df['surveys_entered_threshold'] = surveys_entered_threshold
+
+        # Drop unwanted unnamed columns from output
+        drop_cols = ['unnamed: 0', 'unnamed: 1', 'unnamed: 3', 'unnamed: 15']
+        merged_df.drop(columns=[c for c in drop_cols if c in merged_df.columns], inplace=True, errors='ignore')
+
+        # Remove columns not needed in output
+        for col_to_remove in ['New_User_Less_History']:
+            if col_to_remove in merged_df.columns:
+                merged_df.drop(columns=[col_to_remove], inplace=True, errors='ignore')
+
+        # --- Fixed column order for Combined Data sheet ---
+        combined_data_columns = [
+            'rid', 'buyer_account_id', 'buyer_account', 'buyer_bu', 'buyer_bu_id', 'survey_client',
+            'client_responsestatusid', 'client_responsestatus', 'link_type_id', 'external_survey_name',
+            'fulcrum_responsestatusid', 'fulcrum_responsestatus', 'internal_survey_name', 'marketplace_projectid',
+            'marketplace_project', 'mid', 'parentsid', 'pid', 'respondentsid', 'entrydate', 'lastdate', 'id', 'name',
+            'supplier_bu_id', 'link_type', 'supplierid', 'survey_country', 'survey_country_langauge', 'survey_ccpi',
+            'survey_HASH_status', 'survey_SCCB_status', 'survey_https_status', 'project_manager', 'pm_email',
+            'survey_qcpi', 'total_system_entrants', 'total_completes', 'total_negative_recs',
+            'total_security_terms_on_marketplace_side', 'total_security_terms_on_client_side', 'total security terms',
+            'first_entry_time', 'last_exit_time', 'net recs rate', 'supplier_bu', 'first_entry_date', 'last_entry_date',
+            'diff days', 'total_surveys_entered', 'system_conversion_rate', 'security terms rate', 'negative_recs_rate',
+            'surveyid', 'comploi', 'session_loi', 'speeder_multiplier', 'high_loi_multiplier',
+            'surveys_entered_threshold', 'conversion_rate_threshold', 'security_terms_threshold',
+            'negative_recs_rate_threshold', 'speeder', 'high_loi', 'poor_conv_rate', 'high_security', 'new_user_bot',
+            'high_rr', 'no enough data', 'flag_count', 'prioflag'
+        ]
+
+        # --- preserve original column names, but build a normalized lookup for matching ---
+        def _normalize_col_name(s):
+            if s is None:
+                return ''
+            return re.sub(r'[^0-9a-z]', '', str(s).lower())
+
+        # Build normalized->actual column map once
+        normalized_to_actual = { _normalize_col_name(c): c for c in merged_df.columns }
+
+        # DEBUG: print normalized->actual mapping and canonical->actual resolution
+        print("DEBUG: Normalized -> actual column map (sample):")
+        # print a limited sample to avoid huge logs - but show full mapping length
+        for k, v in list(normalized_to_actual.items())[:50]:
+            print(f"  {k!r} -> {v!r}")
+        print(f"DEBUG: Total normalized columns: {len(normalized_to_actual)}")
+
+        # Also show how canonical required columns will map to actual columns
+        canonical_checks = [
+            'rid', 'buyer_account_id', 'pid', 'system_conversion_rate',
+            'security terms rate', 'total_surveys_entered', 'Diff Days',
+            'CompLOI', 'Flag_Count', 'PrioFlag'
+        ]
+        print("DEBUG: Canonical -> actual mapping preview:")
+        for canon in canonical_checks:
+            mapped = normalized_to_actual.get(_normalize_col_name(canon))
+            print(f"  Canonical: {canon!r}  ->  Actual: {mapped!r}")
+
+        # --- Ensure calculated columns are present (empty/null if missing) ---
+        # We will map canonical names to actual column names where possible; otherwise create columns with None.
+        canonical_calc_cols = ['diff days', 'comploi', 'flag_count', 'prioflag']
+        for canon in canonical_calc_cols:
+            norm = _normalize_col_name(canon)
+            if norm in normalized_to_actual:
+                # ensure the actual column exists (it already does) — nothing to do
+                pass
+            else:
+                # create the canonical column name in merged_df so downstream logic finds it if it expects canonical names
+                # We create the canonical name as provided (use the canonical string) with empty values
+                merged_df[canon] = None
+                # update mapping
+                normalized_to_actual[norm] = canon
+
+        # --- Omit missing columns from output, log warnings ---
+        # Use canonical combined_data_columns (the list you already have) and map to actual column names in merged_df
+        output_actual_cols = []
+        missing_cols = []
+        for canon in combined_data_columns:
+            norm = _normalize_col_name(canon)
+            if norm in normalized_to_actual:
+                output_actual_cols.append(normalized_to_actual[norm])
+            else:
+                missing_cols.append(canon)
+
+        # Special handling for 'security terms rate' - ensure it's included if present in merged_df
+        if 'security terms rate' in merged_df.columns and 'security terms rate' not in output_actual_cols:
+            output_actual_cols.append('security terms rate')
+            print("DEBUG: Added 'security terms rate' to output_actual_cols")
+
+        if missing_cols:
+            print(f"WARNING: The following columns are missing and will be omitted from output: {missing_cols}")
+
+        # Build final ordered DataFrame using actual column names found
+        # Ensure duplicates are removed while preserving order
+        seen = set()
+        final_output_cols = []
+        for col in output_actual_cols:
+            if col not in seen:
+                final_output_cols.append(col)
+                seen.add(col)
+
+        # Ensure the calculated canonical columns exist at the end (use the actual column names from normalized_to_actual)
+        for calc in ['diff days', 'comploi', 'flag_count', 'prioflag']:
+            actual = normalized_to_actual.get(_normalize_col_name(calc))
+            if actual and actual not in seen:
+                final_output_cols.append(actual)
+                seen.add(actual)
+
+        # Slice merged_df to final column order (missing columns were created earlier as None where needed)
+        merged_df = merged_df[final_output_cols]
+
+        # --- Write to Excel using xlsxwriter ---
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"RID-PID_Report_{timestamp}.xlsx"
         output_path = os.path.join(output_dir, output_filename)
-
-        try:
-            print("DEBUG: Starting Excel file creation...")
-            with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-                # Convert data types before writing to ensure Excel compatibility
-                merged_df_copy = merged_df.copy()
-                
-                # Ensure numeric columns are properly typed
-                numeric_cols = ['system_conversion_rate', 'Security_Terms_Rate', 'Flag_Count', 'Diff Days']
-                if 'net recs rate' in merged_df_copy.columns:
-                    numeric_cols.append('net recs rate')
-                
-                for col in numeric_cols:
-                    if col in merged_df_copy.columns:
-                        merged_df_copy[col] = pd.to_numeric(merged_df_copy[col], errors='coerce')
-                
-                # Ensure text columns are strings
-                text_cols = ['pid', 'supplier_bu', 'Observation']
-                for col in text_cols:
-                    if col in merged_df_copy.columns:
-                        merged_df_copy[col] = merged_df_copy[col].astype(str).replace('nan', '')
-                
-                # Ensure boolean columns are properly formatted
-                bool_cols = ['Poor_Conv_Rate', 'New_User_Bot', 'High_Security', 'Speeder', 'High_LOI', 'High_RR', 'FirstLastDateMatch']
-                for col in bool_cols:
-                    if col in merged_df_copy.columns:
-                        merged_df_copy[col] = merged_df_copy[col].astype(bool)
-                
-                # Convert all remaining object columns to strings to avoid XML issues
-                for col in merged_df_copy.columns:
-                    if merged_df_copy[col].dtype == 'object' and col not in bool_cols:
-                        merged_df_copy[col] = merged_df_copy[col].astype(str).replace('nan', '')
-                
-                print("DEBUG: Writing Combined Data sheet...")
-                merged_df_copy.to_excel(writer, sheet_name='Combined Data', index=False)
-                print("DEBUG: Combined Data sheet written successfully")
-                
-                print("DEBUG: Calling add_pivot_and_format...")
-                add_pivot_and_format(writer, merged_df)
-                print("DEBUG: add_pivot_and_format completed successfully")
-                
-                print("DEBUG: Calling add_check_results_pivot...")
-                add_check_results_pivot(writer, merged_df)
-                print("DEBUG: add_check_results_pivot completed successfully")
-
-                print("DEBUG: Reordering sheets...")
-                # Reorder sheets to match desired sequence
-                wb = writer.book
-                desired_order = [
-                    "Combined Data",
-                    "Flags Pivot (Priority)", 
-                    "Flags Pivot (Multi)",
-                    "Pivot EntryDate x Supplier",
-                    "Pivot EntryDate x Flags"
-                ]
-                
-                # Reorder existing sheets
-                existing_sheets = []
-                for sheet_name in desired_order:
-                    if sheet_name in wb.sheetnames:
-                        existing_sheets.append(wb[sheet_name])
-                
-                # Remove all sheets from workbook
-                wb._sheets.clear()
-                
-                # Add sheets back in desired order
-                for sheet in existing_sheets:
-                    wb._sheets.append(sheet)
-                print("DEBUG: Sheet reordering completed")
-
-                print("DEBUG: Creating DenyList_Draft sheet...")
-                # --- Create DenyList_Draft sheet ---
-                deny_sheet, deny_df = create_denylist_draft_sheet(wb, merged_df)
-                print("DEBUG: DenyList_Draft sheet created")
-
-                # Apply conditional formatting for DenyList_Draft
-                apply_denylist_conditional_formatting(deny_sheet, deny_df, merged_df)
-                print("DEBUG: DenyList_Draft conditional formatting completed")
-                
-                print("DEBUG: Starting header alignment and data type setting...")
-                # Set header alignment to left for Combined Data and DenyList_Draft
-                left_align = Alignment(horizontal='left')
-                # Combined Data
-                combined_sheet = wb["Combined Data"]
-                
-                for cell in combined_sheet[1]:
-                    cell.alignment = left_align
-                    cell.data_type = 's'  # Headers should be text
-                    
-                # DenyList_Draft
-                for cell in deny_sheet[1]:
-                    cell.alignment = left_align
-                print("DEBUG: Header alignment and data types completed")
-
-                print("DEBUG: Starting conditional formatting for Combined Data...")
-                # --- Enhanced Conditional Formatting for Combined Data ---
-                apply_combined_data_formatting(combined_sheet, merged_df)
-
-                print("DEBUG: Excel file creation completed successfully")
-
-        except PermissionError:
-            raise ValueError(f"Cannot write to output file. Please ensure the file is not open in Excel: {output_filename}")
-        except Exception as e:
-            print(f"DEBUG: Error in Excel file creation: {e}")
-            import traceback
-            traceback.print_exc()
-            if "openpyxl" in str(e):
-                raise ValueError(f"Excel generation error: {str(e)}. The data was processed but some visual formatting may be missing.")
-            raise ValueError(f"Error creating Excel report: {str(e)}")
-
+        print("DEBUG: Writing Combined Data sheet with xlsxwriter...")
+        write_combined_data_xlsx(
+            output_path,
+            merged_df,
+            surveys_entered_threshold=surveys_entered_threshold,
+            conversion_rate_threshold=conversion_rate_threshold,
+            security_terms_threshold=security_terms_threshold,
+            negative_recs_rate_threshold=negative_recs_rate_threshold,
+            is_pid_only_mode=is_pid_only_mode  # Added parameter
+        )
+        print("DEBUG: Combined Data sheet written successfully")
         return str(output_path)
         
     except ValueError:
@@ -315,7 +328,8 @@ def generate_pid_only_report(
     conversion_rate_threshold=10,
     security_terms_threshold=30,
     negative_recs_rate_threshold=15,
-    use_datetime_for_newuser=True
+    surveys_entered_threshold=5,
+    is_pid_only_mode=False  # Added parameter
 ):
     """Processes only the PID Metrics file and generates an Excel report with observations (PID-only mode)."""
     try:
@@ -338,7 +352,8 @@ def generate_pid_only_report(
             high_loi_multiplier=None,
             negative_recs_rate_threshold=negative_recs_rate_threshold,
             session_loi_checks=False,
-            use_datetime_for_newuser=use_datetime_for_newuser
+            use_datetime_for_newuser=True,
+            surveys_entered_threshold=surveys_entered_threshold  # <-- Pass this argument
         )
         
         # --- Generate Excel File ---
@@ -346,41 +361,17 @@ def generate_pid_only_report(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"pid_metrics_report_{timestamp}.xlsx"
         output_path = os.path.join(output_dir, output_filename)
-        
-        print("DEBUG: PID-only output_path:", repr(output_path))
-        
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            metrics_df.to_excel(writer, sheet_name='PID Metrics Data', index=False)
-            workbook = writer.book
-            ws_data = writer.sheets['PID Metrics Data']
-            ws_data.freeze_panes = ws_data['B2']
-            ws_data.auto_filter.ref = ws_data.dimensions
-            
-            # Add Observation Pivot with formatting and conditional totals
-            if 'Observation' in metrics_df.columns:
-                obs_counts = metrics_df['Observation'].value_counts().reset_index()
-                obs_counts.columns = ['Observation', 'Count']
-                na_row = obs_counts[obs_counts['Observation'] == '-n/a-']
-                other_rows = obs_counts[obs_counts['Observation'] != '-n/a-'].sort_values('Count', ascending=False)
-                obs_counts_sorted = pd.concat([na_row, other_rows], ignore_index=True)
-                
-                obs_counts_sorted.to_excel(writer, sheet_name='Observation Pivot', index=False)
-                ws_pivot = writer.sheets['Observation Pivot']
-                ws_pivot.auto_filter.ref = ws_pivot.dimensions
-                ws_pivot.freeze_panes = ws_pivot['B2']
-                
-                from openpyxl.styles import Font
-                dark_green_font = Font(color="006400")
-                for row in ws_pivot.iter_rows(min_row=2, max_row=2, min_col=1, max_col=2):
-                    for cell in row:
-                        if cell.value == '-n/a-' or (cell.row == 2 and ws_pivot['A2'].value == '-n/a-'):
-                            cell.font = dark_green_font
-                
-                # Add column total
-                ws_pivot.cell(row=ws_pivot.max_row+1, column=1, value='Column Total')
-                ws_pivot.cell(row=ws_pivot.max_row, column=2, value=obs_counts_sorted['Count'].sum())
-                ws_pivot.cell(row=ws_pivot.max_row, column=2).font = Font(bold=True)
-                    
+        print("DEBUG: Writing PID Metrics Data sheet with xlsxwriter...")
+        write_combined_data_xlsx(
+            output_path,
+            metrics_df,
+            surveys_entered_threshold=surveys_entered_threshold,
+            conversion_rate_threshold=conversion_rate_threshold,
+            security_terms_threshold=security_terms_threshold,
+            negative_recs_rate_threshold=negative_recs_rate_threshold,
+            is_pid_only_mode=is_pid_only_mode  # Added parameter
+        )
+        print("DEBUG: PID Metrics Data sheet written successfully")
         return str(output_path)
     except ValueError:
         raise  # Re-raise ValueError as-is
