@@ -121,7 +121,8 @@ def write_combined_data_xlsx(
     conversion_rate_threshold=None,
     security_terms_threshold=None,
     negative_recs_rate_threshold=None,
-    is_pid_only_mode=False  # Added parameter
+    is_pid_only_mode=False,
+    config=None
 ):
     """Write Combined Data sheet to Excel file with formulas for dynamic calculations."""
     df_out = reorder_and_fill_combined_data(
@@ -195,6 +196,34 @@ def write_combined_data_xlsx(
                 worksheet.set_column(col_idx, col_idx, width, fmt_date)  # Ensure date format
             else:
                 worksheet.set_column(col_idx, col_idx, width)
+
+            # Apply background color #D8D8D8 for specified columns
+            if col_name in [
+                'session_loi',
+                'speeder_multiplier',
+                'high_loi_multiplier',
+                'surveys_entered_threshold',
+                'conversion_rate_threshold',
+                'security_terms_threshold',
+                'negative_recs_rate_threshold'
+            ]:
+                worksheet.set_column(col_idx, col_idx, width, workbook.add_format({'bg_color': '#D8D8D8'}))
+            # Apply background color #E5E0EC for specified columns
+            elif col_name in [
+                'Speeder',
+                'High_LOI',
+                'Poor_Conv_Rate',
+                'High_Security',
+                'New_User_Bot',
+                'High_RR',
+                'No_Enough_Data',
+                'Flag_Count',
+                'PrioFlag',
+                'Tenure_Group',
+                'entrydate_split'
+            ]:
+                worksheet.set_column(col_idx, col_idx, width, workbook.add_format({'bg_color': '#E5E0EC'}))
+            # ...existing code for other columns...
 
         # Freeze header row
         worksheet.freeze_panes(1, 0)
@@ -334,9 +363,9 @@ def write_combined_data_xlsx(
                     worksheet.write_formula(cell, f)
 
         # After writing formulas, set entrydate_split column to Date format
-        if 'entrydate_split' in df_out.columns:
-            entrydate_split_col_idx = df_out.columns.get_loc('entrydate_split')
-            worksheet.set_column(entrydate_split_col_idx, entrydate_split_col_idx, 15, fmt_date)
+        # if 'entrydate_split' in df_out.columns:
+        #    entrydate_split_col_idx = df_out.columns.get_loc('entrydate_split')
+        #    worksheet.set_column(entrydate_split_col_idx, entrydate_split_col_idx, 15, fmt_date)
 
         # Conditional formatting for background color scales and font colors using updated column letters
         worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['supplier_bu_id'], end=len(df_out) + 1), {
@@ -353,13 +382,6 @@ def write_combined_data_xlsx(
             'max_color': '#FF7EFF',
         })  # total_surveys_entered
 
-        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['entrydate_split'], end=len(df_out) + 1), {
-            'type': '3_color_scale',
-            'min_color': "#7C7CFC",
-            'mid_color': '#FFFFA8',
-            'max_color': '#FF7EFF',
-        })  # entrydate_split
-
         worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['CompLOI'], end=len(df_out) + 1), {
             'type': '3_color_scale',
             'min_color': "#7C7CFC",
@@ -367,19 +389,23 @@ def write_combined_data_xlsx(
             'max_color': "#FF7EFF",
         })  # CompLOI
 
-        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['client_responsestatusid'], end=len(df_out) + 1), {
+        # Add conditional formatting for Tenure column (same as CompLOI)
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['Tenure'], end=len(df_out) + 1), {
             'type': '3_color_scale',
             'min_color': "#7C7CFC",
             'mid_color': '#FFFFA8',
-            'max_color': '#FF7EFF',
-        })  # client_responsestatusid
+            'max_color': "#FF7EFF",
+        })  # Tenure
 
-        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['fulcrum_responsestatusid'], end=len(df_out) + 1), {
-            'type': '3_color_scale',
-            'min_color': "#7C7CFC",
-            'mid_color': '#FFFFA8',
-            'max_color': '#FF7EFF',
-        })  # fulcrum_responsestatusid
+        # Conditional formatting for Flag_Count column: red to white, max value 5
+        worksheet.conditional_format('{col}2:{col}{end}'.format(col=col_letters['Flag_Count'], end=len(df_out) + 1), {
+            'type': '2_color_scale',
+            'max_color': "#FF0000",  # Red
+            'min_color': "#E5E0EC",  # White
+            'max_type': 'num',
+            'min_value': 0,
+            'max_value': 7
+        })  # Flag_Count
 
         # Conditional formatting for font colors
         worksheet.conditional_format('BP2:BP{end}'.format(end=len(df_out) + 1), {
@@ -442,3 +468,29 @@ def write_combined_data_xlsx(
             'mid_color': '#FFFFA8',  # Yellow
             'max_color': '#FF7EFF',  # Purple
         })  # fulcrum_responsestatusid
+
+
+
+        # After writing Combined Data, call pivot sheet functions
+        import pivot_sheet2
+        import pivot_sheet3
+        import pivot_sheet4
+        import pivot_sheet5
+        import pivot_sheet6
+        if config is None:
+            config = {
+                'surveys_entered_threshold': surveys_entered_threshold,
+                'conversion_rate_threshold': conversion_rate_threshold,
+                'security_terms_threshold': security_terms_threshold,
+                'negative_recs_rate_threshold': negative_recs_rate_threshold,
+                'is_pid_only_mode': is_pid_only_mode,
+                'debug': True
+            }
+        # Call each pivot sheet function
+        pivot_sheet2.write_prioflag_pivot(workbook, df_out, config)        
+        pivot_sheet3.write_multiflag_pivot(workbook, df_out, config)
+        pivot_sheet4.write_entrydateflags_pivot(workbook, df_out, config)
+        pivot_sheet5.write_entrydatesuppliers_pivot(workbook, df_out, config)
+        pivot_sheet6.write_denylist_draft(workbook, df_out, config)
+        # Explicitly call sheet reordering
+        # pivot_sheets.reorder_pivot_sheets(workbook, config)
