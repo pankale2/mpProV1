@@ -33,65 +33,78 @@
                 <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
                 <strong style="font-weight:600;">How This Tool Works</strong>
                 <ul style="margin-top:8px; margin-bottom:0; padding-left:18px; font-weight: normal;">
-                  <li style="margin-top:8px;"><b>Modes:</b>
+                  <li style="margin-top:8px;"><b>Processing Modes:</b>
                     <ul>
                       <li><b>RID+PID Mode</b> (Default):
                         <ul>
                           <li>Requires both RID Lookup CSV and PID Metrics Excel files</li>
-                          <li>After RID file upload, Survey LOI box & links to surveyids (to see actual LOIs) becomes available</li>
-                          <li>All 6 observation checks are applied</li>
+                          <li>After RID file upload, Survey LOI section becomes available with mode toggle</li>
+                          <li>All 6 observation checks are applied including session-based checks</li>
                         </ul>
                       </li>
                       <li><b>PID-only Mode:</b>
                         <ul>
-                          <li>Requires only PID Metrics Excel file, RID file and Survey LOI inputs are hidden</li>
-                          <li>Only PID-based checks are applied; session_loi-based checks are skipped.</li>
+                          <li>Requires only PID Metrics Excel file</li>
+                          <li>RID file upload and Survey LOI inputs are automatically hidden</li>
+                          <li>Only historical PID-based checks are applied (skips session LOI checks)</li>
                         </ul>
                       </li>
                     </ul>
                   </li>
-                  <li style="margin-top:8px;"><b>Observation Checks &amp;  Order:</b>
+                  <li style="margin-top:8px;"><b>LOI Input Modes (RID+PID only):</b>
+                    <ul>
+                      <li><b>Survey-specific LOI:</b> Individual LOI values for each survey ID with direct Marketplace links</li>
+                      <li><b>Average LOI:</b> Single LOI value applied to all surveys with aggregated Marketplace link to top survey</li>
+                    </ul>
+                  </li>
+                  <li style="margin-top:8px;"><b>Observation Checks &amp; Priority Order:</b>
                     <ol style="margin: 6px 0 0 18px; padding-left:0;">
-                      <li><b>Poor Conversion Rate:</b> system_conversion_rate &lt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered > 5</span></li>
-                      <li><b>New User (bot?):</b> FIRST_ENTRY_DATE = LAST_ENTRY_DATE</li>
-                      <li><b>High Security Terms:</b> <code>security_terms_rate &gt; threshold</code> <span style="color:#cd25f1;">&amp; total_surveys_entered > 5</span></li>
-                      <li><b>Speeder:</b> session_loi &lt; actual_loi/divider (RID+PID only)</li>
-                      <li><b>High LOI, Distracted:</b> session_loi &gt; actual_loi×multiplier (RID+PID only)</li>
-                      <li><b>High RR%:</b> net_recs_rate &gt; threshold <span style="color:#cd25f1;">&amp; total_surveys_entered > 5</span></li>                                              
+                      <li><b>Low Conversion Rate:</b> system_conversion_rate &lt; threshold% <span style="color:#cd25f1;">&amp; total_surveys_entered &gt; threshold</span></li>
+                      <li><b>New User, First survey, Bot suspect:</b> first_entry_date = last_entry_date (date-only comparison)</li>
+                      <li><b>High Security Terms Rate:</b> security_terms_rate &gt; threshold% <span style="color:#cd25f1;">&amp; total_surveys_entered &gt; threshold</span></li>
+                      <li><b>Low LOI, Speeder:</b> session_loi &lt; Survey_LOI/divider (RID+PID mode only)</li>
+                      <li><b>High LOI, Distracted:</b> session_loi &gt; Survey_LOI×multiplier (RID+PID mode only)</li>
+                      <li><b>High Reversal Rate:</b> net_recs_rate &gt; threshold% <span style="color:#cd25f1;">&amp; total_surveys_entered &gt; threshold</span></li>                                              
                     </ol>
-                    <p><b>If no checks match: <code style="color: #006400; font-weight:600;">-n/a-</code> is noted in the Observation column.</b></p>
+                    <p style="margin-top:6px;"><b>Priority Logic:</b> Later checks override earlier ones. If no checks match: <code style="color: #006400; font-weight:600;">No Flags</code></p>
+                    <p style="margin-top:6px;"><b>Survey Count Condition:</b> Three checks (Low Conversion, High Security, High Reversal) only apply when total_surveys_entered exceeds the threshold (default: 5)</p>
+                  </li>
+                  <li style="margin-top:8px;"><b>Excel Output Report (6 sheets):</b>
+                    <ul>
+                      <li><b>Combined Data:</b> Merged dataset with all calculated columns and Excel formulas for dynamic calculations</li>
+                      <li><b>Counts:</b> Summary count tables with TRANSPOSE formulas referencing pivot data:
+                        <ul>
+                          <li>PrioFlag Counts (from priority-based observations)</li>
+                          <li>MultiFlag Counts (from multi-flag analysis)</li>
+                          <li>Individual counts for surveyid, response status, country, project manager, buyer BU</li>
+                        </ul>
+                      </li>
+                      <li><b>Flags Pivot (Priority):</b> Supplier × single priority observation with conditional formatting</li>
+                      <li><b>Flags Pivot (Multi):</b> Supplier × all applicable flags showing complete flag analysis</li>
+                      <li><b>Pivot EntryDate × Flags:</b> Time-series analysis of observation types by date</li>
+                      <li><b>Pivot EntryDate × Supplier:</b> Time-series analysis of entries by supplier and date</li>
+                      <li><b>DenyList_Draft:</b> Filtered flagged records formatted for deny-list creation</li>
+                    </ul>
                   </li>
                   <li style="margin-top:8px;"><b>Advanced Options:</b>
                     <ul>
-                      <li>Review and customize thresholds for all checks as per your preferences.</li>
-                      <li>Your settings are saved in your browser for convenience.</li>
+                      <li><b>RID checks (current session):</b> Configure Speeder and High LOI multipliers/dividers</li>
+                      <li><b>PID checks (historical data):</b> Set thresholds for conversion rate, security terms, and reversal rate</li>
+                      <li><b>Survey count threshold:</b> Minimum surveys required for historical checks (4-20, default: 5)</li>
+                      <li>All settings are automatically saved in your browser for convenience</li>
                     </ul>
                   </li>
-                  <li style="margin-top:8px;"><b>Output Report:</b>
+                  <li style="margin-top:8px;"><b>Validation &amp; Features:</b>
                     <ul>
-                      <li>"Observation" column shows final/latest matching check (as before).</li>
-                      <li>Six additional columns show all matching checks (True/False)</li>
-                      <li>Four pivot sheets summarizing results:
-                        <ul>
-                          <li>"Flags Pivot (Multi)" - Shows counts for each check condition by supplier</li>
-                          <li>"Flags Pivot (Priority)" - Uses single observation based on priority order. If a record qualifies multiple checks, <i>only the later check (in the above listed checks order) is noted</i></li>
-                          <li>"Pivot EntryDate x Supplier" - Daily counts of entries by supplier</li>
-                          <li>"Pivot EntryDate x Flags" - Daily counts of flags by observation type</li>
-                        </ul>
-                      </li>
-                      <li>"DenyList_Draft" - Includes necessary format and details to help create the final Deny-List CSV.</li>
-                    </ul>
-                  </li>
-                  <li style="margin-top:8px;"><b>Validation:</b>
-                    <ul>
-                      <li>Files: CSV for RID, XLSX for PID Metrics, only upload the original files, with no modifications</li>
-                      <li>LOI: Must be a number between 3 and 100, required in RID+PID mode</li>
-                      <li>Check button tooltips for real-time feedback</li>
-                      <li>Process button enables when requirements met</li>
+                      <li><b>File validation:</b> CSV for RID, XLSX for PID Metrics - upload original files without modifications</li>
+                      <li><b>LOI validation:</b> Must be between 3-100, required in RID+PID mode</li>
+                      <li><b>Real-time validation:</b> Button tooltips show missing requirements, process button enables when ready</li>
+                      <li><b>Dark mode support:</b> Toggle between light and dark themes (preference saved)</li>
+                      <li><b>Excel formulas:</b> Most calculations use Excel formulas for transparency and performance</li>
                     </ul>
                   </li>
                 </ul>
-                <p style="text-align: right;">for any queries/concerns, reach out to <a href="https://cint.enterprise.slack.com/archives/D0327778C3S" target="_blank">T&amp;S team</a>.</p>
+                <p style="text-align: right; margin-top:12px;">For queries/concerns, reach out to <a href="https://cint.enterprise.slack.com/archives/D0327778C3S" target="_blank">T&amp;S team</a>.</p>
               </div>
             </h1>
             
