@@ -2,6 +2,7 @@
 import pandas as pd
 from xlsxwriter.utility import xl_col_to_name
 
+
 def write_multiflag_pivot(workbook, df_out, config):
     if config.get('debug'):
         print("[DEBUG] Creating MultiFlag Pivot sheet")
@@ -218,3 +219,152 @@ def write_multiflag_pivot(workbook, df_out, config):
     # Optionally, freeze top row and first column
     pivot_ws.freeze_panes(1, 1)
     pivot_ws.freeze_panes(1, 1)
+
+    # Calculate total RIDs and supplier percentages for summary table
+    total_rids = sum([supplier_counts[s] for s in suppliers])
+    supplier_percent = {s: supplier_counts[s] / total_rids for s in suppliers}
+
+    # After writing main table, call summary table function
+    write_multiflag_pivot_summary(
+        workbook,
+        pivot_ws,
+        suppliers,
+        supplier_percent,
+        headers,
+        first_table_start_row=0,
+        first_table_total_row=total_row,
+        first_table_percent_row=percent_row,
+        config=config
+    )
+
+def write_multiflag_pivot_summary(workbook, pivot_ws, suppliers, supplier_percent, headers, first_table_start_row, first_table_total_row, first_table_percent_row, config):
+    # Leave 4 blank rows after first table's % row
+    summary_start_row = first_table_percent_row + 4
+
+    # Write headers (same as main table)
+    for col_idx, header in enumerate(headers):
+        if col_idx == 0:
+            header_fmt = workbook.add_format({'bold': True, 'align': 'left', 'border': 1})
+            pivot_ws.write(summary_start_row, col_idx, header, header_fmt)
+            pivot_ws.set_column(col_idx, col_idx, 30)
+        else:
+            header_fmt = workbook.add_format({
+                'bold': True,
+                'align': 'right',
+                'text_wrap': True,
+                'bg_color': [
+                    None, '#DCE6F1', '#D8E4BC', '#EBF1DE', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#E6B8B7'
+                ][col_idx],
+                'border': 1
+            })
+            pivot_ws.write(summary_start_row, col_idx, header, header_fmt)
+            pivot_ws.set_column(col_idx, col_idx, 11)
+
+    # Identify suppliers with >5% RIDs and those to club
+    main_suppliers = [s for s in suppliers if supplier_percent[s] > 0.05]
+    other_suppliers = [s for s in suppliers if supplier_percent[s] <= 0.05]
+    num_other = len(other_suppliers)
+    supplier_row_map = {s: i+2 for i, s in enumerate(suppliers)}
+
+    # Write supplier rows (>5% RIDs)
+    for idx, s in enumerate(main_suppliers):
+        row = summary_start_row + 1 + idx
+        first_row = supplier_row_map[s]
+        pivot_ws.write(row, 0, s, workbook.add_format({'bold': True, 'align': 'left', 'border': 1}))
+        for col in range(1, len(headers)):
+            cell_ref = f"{xl_col_to_name(col)}{first_row}"
+            fmt = workbook.add_format({'align': 'right', 'border': 1, 'bold': col in [1,10]})
+            pivot_ws.write_formula(row, col, f"={cell_ref}", fmt)
+
+    # Write "Other" row using SUM formula over adjacent block
+    other_row = summary_start_row + 1 + len(main_suppliers)
+    other_label = f"Other ({num_other}) suppliers"
+    pivot_ws.write(other_row, 0, other_label, workbook.add_format({'italic': True, 'align': 'right', 'border': 1}))
+    if num_other > 0:
+        # Find first and last row for "Other" suppliers in original table
+        other_indices = [supplier_row_map[s] for s in other_suppliers]
+        min_row = min(other_indices)
+        max_row = max(other_indices)
+        for col in range(1, len(headers)):
+            col_letter = xl_col_to_name(col)
+            sum_formula = f"=SUM({col_letter}{min_row}:{col_letter}{max_row})"
+            fmt = workbook.add_format({'align': 'right', 'border': 1, 'bold': col in [1,10]})
+            pivot_ws.write_formula(other_row, col, sum_formula, fmt)
+    else:
+        for col in range(1, len(headers)):
+            fmt = workbook.add_format({'align': 'right', 'border': 1, 'bold': col in [1,10]})
+            pivot_ws.write(other_row, col, 0, fmt)
+
+    # Write "Total" row - reference original table's Total row
+    total_row = other_row + 1
+    orig_total_row = first_table_total_row
+    pivot_ws.write(total_row, 0, "Total", workbook.add_format({'bold': True, 'align': 'right', 'border': 1}))
+    for col in range(1, len(headers)):
+        cell_ref = f"{xl_col_to_name(col)}{orig_total_row}"
+        pivot_ws.write_formula(
+            total_row, col,
+            f"={cell_ref}",
+            workbook.add_format({'bold': True, 'bg_color': [
+                None, '#DCE6F1', '#D8E4BC', '#EBF1DE', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#E6B8B7'
+            ][col], 'border': 1})
+        )
+
+    # Write "%" row - reference original table's % row
+    percent_row = total_row + 1
+    orig_percent_row = first_table_percent_row
+    pivot_ws.write(percent_row, 0, "%", workbook.add_format({'bold': True, 'align': 'right', 'border': 1}))
+    for col in range(1, len(headers)):
+        cell_ref = f"{xl_col_to_name(col)}{orig_percent_row}"
+        pivot_ws.write_formula(
+            percent_row, col,
+            f"={cell_ref}",
+            workbook.add_format({'bold': True, 'num_format': '0.00%', 'align': 'right', 'bg_color': [
+                None, '#DCE6F1', '#D8E4BC', '#EBF1DE', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#E6B8B7'
+            ][col], 'border': 1})
+        )
+
+    # Apply conditional formatting (same as main table)
+    data_row_end = other_row
+    max_value = config.get('max_value', 1)
+    if config.get('debug'):
+        print(f"[DEBUG] MultiFlag Pivot summary table conditional formatting max_value: {max_value}")
+    pivot_ws.conditional_format(
+        f'E{summary_start_row+1}:J{data_row_end}',
+        {
+            'type': '2_color_scale',
+            'min_color': '#FFFFFF',
+            'max_color': '#FF0000',
+            'max_type': 'num',
+            'min_value': 0,
+            'max_value': max_value
+        }
+    )
+    pivot_ws.conditional_format(
+        f'C{summary_start_row+1}:D{data_row_end}',
+        {
+            'type': '2_color_scale',
+            'min_color': '#FFFFFF',
+            'max_color': '#006400',
+            'max_type': 'num',
+            'min_value': 0,
+            'max_value': max_value
+        }
+    )
+    pivot_ws.conditional_format(
+        f'B{total_row+1}:K{total_row+1}',
+        {
+            'type': 'data_bar',
+            'bar_color': '#5B9BD5',
+            'data_bar_2010': True,
+            'bar_only': False
+        }
+    )
+    pivot_ws.conditional_format(
+        f'B{summary_start_row+2}:B{total_row+1}',
+        {
+            'type': 'data_bar',
+            'bar_color': '#5B9BD5',
+            'data_bar_2010': True,
+            'bar_only': False
+        }
+    )

@@ -172,34 +172,97 @@ def write_combined_data_xlsx(
         for col_idx, col_name in enumerate(df_out.columns):
             worksheet.write(0, col_idx, col_name, fmt_header)
 
+        # Define comprehensive column width mapping
+        column_widths = {
+            'rid': 37.71,
+            'buyer_account_id': 6.43,
+            'buyer_account': 17.29,
+            'buyer_bu': 17.29,
+            'buyer_bu_id': 6,
+            'survey_client': 17.29,
+            'client_responsestatusid': 5.29,
+            'client_responsestatus': 15,
+            'link_type_id': 4.71,
+            'external_survey_name': 15,
+            'fulcrum_responsestatusid': 5.43,
+            'fulcrum_responsestatus': 24.29,
+            'internal_survey_name': 21.86,
+            'marketplace_projectid': 10.86,
+            'marketplace_project': 25.14,
+            'mid': 22.71,
+            'parentsid': 17.71,
+            'pid': 35.57,
+            'respondentsid': 12,
+            'entrydate': 12.57,
+            'lastdate': 11,
+            'id': 6.71,
+            'name': 30,
+            'supplier_bu_id': 8.57,
+            'link_type': 20.57,
+            'supplierid': 10.43,
+            'survey_country': 11.29,
+            'survey_country_langauge': 15,
+            'survey_ccpi': 5,
+            'survey_HASH_status': 5,
+            'survey_SCCB_status': 5,
+            'survey_https_status': 5,
+            'project_manager': 15,
+            'pm_email': 15,
+            'survey_qcpi': 9.71,
+            'total_system_entrants': 15,
+            'total_completes': 15,
+            'total_negative_recs': 15,
+            'total_security_terms_on_marketplace_side': 15,
+            'total_security_terms_on_client_side': 15,
+            'total_security_terms': 15,
+            'first_entry_time': 15,
+            'last_exit_time': 15,
+            'net_recs_rate': 9.86,
+            'supplier_bu': 30,
+            'first_entry_date': 11.71,
+            'last_entry_date': 11.71,
+            'Tenure': 10.71,
+            'total_surveys_entered': 10.71,
+            'system_conversion_rate': 10.71,
+            'security_terms_rate': 10.71,
+            'negative_recs_rate': 10.71,
+            'surveyid': 10.14,
+            'CompLOI': 10.57,
+            'session_loi': 4.86,
+            'speeder_multiplier': 4.86,
+            'high_loi_multiplier': 4.86,
+            'surveys_entered_threshold': 4.86,
+            'conversion_rate_threshold': 4.86,
+            'security_terms_threshold': 4.86,
+            'negative_recs_rate_threshold': 4.86,
+            'Speeder': 9.86,
+            'High_LOI': 9.86,
+            'Poor_Conv_Rate': 9.86,
+            'High_Security': 9.86,
+            'New_User_Bot': 9.86,
+            'High_RR': 9.86,
+            'No_Enough_Data': 9.86,
+            'Flag_Count': 12.43,
+            'PrioFlag': 31.86,
+            'Tenure_Group': 17.29,
+            'entrydate_split': 10.29
+        }
+
         # Set column formats
         for col_idx, col_name in enumerate(df_out.columns):
             lc = _normalize_name(col_name)
-            width = 15
-            if lc in [ _normalize_name(n) for n in ['pid','supplierid','supplier_bu','name','supplier_bu_id','buyer_account'] ]:
-                width = 30
+            width = column_widths.get(col_name, 15)  # Use mapping or default to 15
+            
             if lc in [ _normalize_name(n) for n in ['system_conversion_rate','security_terms_rate','negative_recs_rate','netrecsrate'] ]:
-                worksheet.set_column(col_idx, col_idx, max(width,12), fmt_percent)
-            elif lc in [ _normalize_name(n) for n in ['flag_count','total_system_entrants','total_completes','total_surveys_entered','tenure'] ]:  # Changed 'diffdays' to 'tenure'
-                worksheet.set_column(col_idx, col_idx, max(width,10), fmt_int)
-            elif col_name in ['Speeder','High_LOI','Poor_Conv_Rate','High_Security','New_User_Bot','High_RR','No Enough Data']:
-                worksheet.set_column(col_idx, col_idx, max(width,10), fmt_bool)
-                col_letter = xl_col_to_name(col_idx)
-                worksheet.conditional_format(f'{col_letter}2:{col_letter}{len(df_out)+1}', {
-                    'type': 'formula',
-                    'criteria': f'=${col_letter}2=TRUE',
-                    'format': fmt_red
-                })
+                worksheet.set_column(col_idx, col_idx, width, fmt_percent)
+            elif lc in [ _normalize_name(n) for n in ['flag_count','total_system_entrants','total_completes','total_surveys_entered','tenure'] ]:
+                worksheet.set_column(col_idx, col_idx, width, fmt_int)
             elif col_name in ['first_entry_time', 'last_exit_time']:
                 worksheet.set_column(col_idx, col_idx, width, fmt_text)  # Ensure text format
             elif col_name in ['first_entry_date', 'last_entry_date']:
                 worksheet.set_column(col_idx, col_idx, width, fmt_date)  # Ensure date format
-            else:
-                worksheet.set_column(col_idx, col_idx, width)
-
-            # Apply background color #D8D8D8 for specified columns
-            if col_name in [
-                'session_loi',
+            # Apply background color #D8D8D8 for specified columns (removed session_loi)
+            elif col_name in [
                 'speeder_multiplier',
                 'high_loi_multiplier',
                 'surveys_entered_threshold',
@@ -208,14 +271,24 @@ def write_combined_data_xlsx(
                 'negative_recs_rate_threshold'
             ]:
                 worksheet.set_column(col_idx, col_idx, width, workbook.add_format({'bg_color': '#D8D8D8'}))
-            # Apply background color #E5E0EC for specified columns
+            # Apply background color #E5E0EC for flag columns
             elif col_name in [
                 'Speeder',
                 'High_LOI',
                 'Poor_Conv_Rate',
                 'High_Security',
                 'New_User_Bot',
-                'High_RR',
+                'High_RR'
+            ]:
+                worksheet.set_column(col_idx, col_idx, width, workbook.add_format({'bg_color': '#E5E0EC', 'align': 'center'}))
+                col_letter = xl_col_to_name(col_idx)
+                worksheet.conditional_format(f'{col_letter}2:{col_letter}{len(df_out)+1}', {
+                    'type': 'formula',
+                    'criteria': f'=${col_letter}2=TRUE',
+                    'format': fmt_red
+                })
+            # Apply background color #E5E0EC for specified columns
+            elif col_name in [
                 'No_Enough_Data',
                 'Flag_Count',
                 'PrioFlag',
@@ -223,7 +296,8 @@ def write_combined_data_xlsx(
                 'entrydate_split'
             ]:
                 worksheet.set_column(col_idx, col_idx, width, workbook.add_format({'bg_color': '#E5E0EC'}))
-            # ...existing code for other columns...
+            else:
+                worksheet.set_column(col_idx, col_idx, width)
 
         # Freeze header row
         worksheet.freeze_panes(1, 0)
@@ -472,6 +546,7 @@ def write_combined_data_xlsx(
 
 
         # After writing Combined Data, call pivot sheet functions
+        import pivot_sheet1
         import pivot_sheet2
         import pivot_sheet3
         import pivot_sheet4
@@ -487,6 +562,7 @@ def write_combined_data_xlsx(
                 'debug': True
             }
         # Call each pivot sheet function
+        pivot_sheet1.write_flag_pivot(workbook, df_out, config)
         pivot_sheet2.write_prioflag_pivot(workbook, df_out, config)        
         pivot_sheet3.write_multiflag_pivot(workbook, df_out, config)
         pivot_sheet4.write_entrydateflags_pivot(workbook, df_out, config)
