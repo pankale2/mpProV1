@@ -88,7 +88,7 @@ def read_metrics_file_from_stream(file_stream):
                 df[col] = pd.to_numeric(df[col], errors='coerce')
                 # REMOVED: No rounding or scaling
 
-        print("DEBUG: metrics_df columns after reading:", df.columns.tolist())  # DEBUG
+        # print("DEBUG: metrics_df columns after reading:", df.columns.tolist())  # DEBUG
 
         return df
     except FileNotFoundError:
@@ -114,7 +114,8 @@ def apply_pid_observation_logic(
     use_datetime_for_newuser=True,
     surveys_entered_threshold=5,
     is_average_loi_mode=False,
-    average_loi_value=None
+    average_loi_value=None,
+    config=None
 ):
     """
     Applies all observation logic to the DataFrame in-place.
@@ -123,6 +124,10 @@ def apply_pid_observation_logic(
     survey_loi_mapping: Dictionary mapping survey IDs to their respective LOI values
     """
     import pandas as pd
+    
+    # Default config if not provided
+    if config is None:
+        config = {}
     
     # Validate required columns exist using exact names from specification
     required_base_cols = ['system_conversion_rate', 'net recs rate', 'total_surveys_entered']
@@ -186,7 +191,8 @@ def apply_pid_observation_logic(
     if session_loi_checks and speeder_multiplier and high_loi_multiplier:
         if is_average_loi_mode and average_loi_value is not None:
             # Average LOI mode: use same value for all rows
-            print(f"DEBUG: Using average LOI value {average_loi_value} for all rows")
+            if config.get('user_feedback', True):
+                print(f"Using average LOI value {average_loi_value} for all rows")
             for idx, row in df.iterrows():
                 session_loi_val = row.get('session_loi')
                 if pd.notna(session_loi_val):
@@ -199,7 +205,8 @@ def apply_pid_observation_logic(
                         df.loc[idx, "High_LOI"] = True
                         df.loc[idx, "Observation"] = "High LOI, Distracted"
         elif survey_loi_mapping and 'surveyid' in df.columns:
-            print(f"DEBUG: Using survey-specific LOI values for {len(survey_loi_mapping)} surveys")
+            if config.get('user_feedback', True):
+                print(f"Using survey-specific LOI values for {len(survey_loi_mapping)} surveys")
             for idx, row in df.iterrows():
                 survey_id = str(row['surveyid']).strip()
                 if survey_id in survey_loi_mapping:
@@ -213,11 +220,14 @@ def apply_pid_observation_logic(
                             df.loc[idx, "High_LOI"] = True
                             df.loc[idx, "Observation"] = "High LOI, Distracted"
                 else:
-                    print(f"DEBUG: No LOI mapping found for survey ID: {survey_id}")
+                    if config.get('debug', False):
+                        print(f"DEBUG: No LOI mapping found for survey ID: {survey_id}")
         else:
-            print("DEBUG: No surveyid column found, skipping survey-specific LOI checks")
+            if config.get('debug', False):
+                print("DEBUG: No surveyid column found, skipping survey-specific LOI checks")
     else:
-        print("DEBUG: Session LOI checks disabled or survey_loi_mapping not provided")
+        if config.get('debug', False):
+            print("DEBUG: Session LOI checks disabled or survey_loi_mapping not provided")
 
     # 6. High RR% - Use NET RECS RATE, only if total_surveys_entered > surveys_entered_threshold
     mask_high_rr = (df['net recs rate'] > negative_recs_rate_threshold) & \

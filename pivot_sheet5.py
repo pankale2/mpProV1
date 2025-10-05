@@ -3,9 +3,11 @@ import pandas as pd
 from xlsxwriter.utility import xl_col_to_name
 
 def write_entrydatesuppliers_pivot(workbook, df_out, config):
-    if config.get('debug'):
-        print("[DEBUG] Creating EntrydateSuppliers Pivot sheet")
-
+    """Create Pivot EntryDate × Supplier time-series analysis sheet"""
+    
+    if config.get('user_feedback', True):
+        print("Creating Pivot EntryDate × Supplier analysis")
+    
     sheet_name = "EntrydateSuppliers Pivot"
     # Get unique suppliers from Combined Data, sorted by occurrence count (descending)
     supplier_col = 'supplier_bu'

@@ -19,13 +19,24 @@ def generate_survey_report(
     surveys_entered_threshold=5,
     is_pid_only_mode=False,  # Added parameter
     is_average_loi_mode=False,
-    average_loi_value=None
+    average_loi_value=None,
+    config=None
 ):
     """
     Processes the survey files and generates an Excel report with observations and a pivot table.
     Note: use_datetime_for_newuser is ignored - always uses date-only comparison now.
     survey_loi_mapping: Dictionary mapping survey IDs to their respective LOI values
     """
+    # Default config if not provided
+    if config is None:
+        config = {
+            'user_feedback': True,
+            'debug': False
+        }
+    
+    if config.get('user_feedback', True):
+        print("Starting RID+PID report generation...")
+    
     try:
         # Validate survey_loi_mapping
         # Fix: Only require survey_loi_mapping if not in average LOI mode
@@ -51,9 +62,9 @@ def generate_survey_report(
 
         # Debug: Print shapes and columns of input DataFrames
         print("DEBUG: rid_df shape:", rid_df.shape)
-        print("DEBUG: rid_df columns:", rid_df.columns.tolist())
+        # print("DEBUG: rid_df columns:", rid_df.columns.tolist())
         print("DEBUG: metrics_df shape:", metrics_df.shape)
-        print("DEBUG: metrics_df columns:", metrics_df.columns.tolist())
+        # print("DEBUG: metrics_df columns:", metrics_df.columns.tolist())
 
         if 'pid' not in rid_df.columns or 'pid' not in metrics_df.columns:
             raise ValueError("Critical Error: 'pid' column not found in one or both input files. Please check that files contain 'pid' column.")
@@ -80,7 +91,7 @@ def generate_survey_report(
 
         # Debug: Print merged DataFrame shape and columns after merge
         print("DEBUG: merged_df shape:", merged_df.shape)
-        print("DEBUG: merged_df columns:", merged_df.columns.tolist())
+        # print("DEBUG: merged_df columns:", merged_df.columns.tolist())
 
         # Add this check immediately after merge
         if merged_df.empty:
@@ -92,7 +103,7 @@ def generate_survey_report(
 
         # DEBUG: Check for security terms rate
         print("DEBUG: merged_df columns after merge:", merged_df.columns.tolist())
-        print("DEBUG: sample security terms rate:", merged_df['security terms rate'].head() if 'security terms rate' in merged_df.columns else "not found")
+        # print("DEBUG: sample security terms rate:", merged_df['security terms rate'].head() if 'security terms rate' in merged_df.columns else "not found")
 
         # Remove scaling logic for percentage columns
         # Ensure all four columns are in 0-100 scale
@@ -127,7 +138,8 @@ def generate_survey_report(
             use_datetime_for_newuser=False,
             surveys_entered_threshold=surveys_entered_threshold,
             is_average_loi_mode=is_average_loi_mode,
-            average_loi_value=average_loi_value
+            average_loi_value=average_loi_value,
+            config=config
         )
 
         # --- Rename 'Observation' to 'PrioFlag' immediately after observation logic ---
@@ -212,7 +224,7 @@ def generate_survey_report(
             'surveyid', 'comploi', 'session_loi', 'speeder_multiplier', 'high_loi_multiplier',
             'surveys_entered_threshold', 'conversion_rate_threshold', 'security_terms_threshold',
             'negative_recs_rate_threshold', 'speeder', 'high_loi', 'poor_conv_rate', 'high_security', 'new_user_bot',
-            'high_rr', 'no enough data', 'flag_count', 'prioflag'
+            'high_rr', 'flag_count', 'prioflag'
         ]
 
         # --- preserve original column names, but build a normalized lookup for matching ---
@@ -225,10 +237,10 @@ def generate_survey_report(
         normalized_to_actual = { _normalize_col_name(c): c for c in merged_df.columns }
 
         # DEBUG: print normalized->actual mapping and canonical->actual resolution
-        print("DEBUG: Normalized -> actual column map (sample):")
+        # print("DEBUG: Normalized -> actual column map (sample):")
         # print a limited sample to avoid huge logs - but show full mapping length
-        for k, v in list(normalized_to_actual.items())[:50]:
-            print(f"  {k!r} -> {v!r}")
+        #for k, v in list(normalized_to_actual.items())[:50]:
+            # print(f"  {k!r} -> {v!r}")
         print(f"DEBUG: Total normalized columns: {len(normalized_to_actual)}")
 
         # Also show how canonical required columns will map to actual columns
@@ -237,10 +249,10 @@ def generate_survey_report(
             'security terms rate', 'total_surveys_entered', 'Diff Days',
             'CompLOI', 'Flag_Count', 'PrioFlag'
         ]
-        print("DEBUG: Canonical -> actual mapping preview:")
+        # print("DEBUG: Canonical -> actual mapping preview:")
         for canon in canonical_checks:
             mapped = normalized_to_actual.get(_normalize_col_name(canon))
-            print(f"  Canonical: {canon!r}  ->  Actual: {mapped!r}")
+            # print(f"  Canonical: {canon!r}  ->  Actual: {mapped!r}")
 
         # --- Ensure calculated columns are present (empty/null if missing) ---
         # We will map canonical names to actual column names where possible; otherwise create columns with None.

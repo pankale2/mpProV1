@@ -3,6 +3,10 @@ import pandas as pd
 import re
 from xlsxwriter.utility import xl_col_to_name
 
+# Comment out unused pandas features
+# import pandas.plotting  # Not needed
+# import pandas.io.sql    # Not needed for this app
+
 def get_combined_data_columns():
     """Return the centralized column order for Combined Data sheet."""
     return [
@@ -33,9 +37,14 @@ def reorder_and_fill_combined_data(
     surveys_entered_threshold=None,
     conversion_rate_threshold=None,
     security_terms_threshold=None,
-    negative_recs_rate_threshold=None
+    negative_recs_rate_threshold=None,
+    config=None
 ):
     """Reorder columns and fill missing columns with blanks for Combined Data sheet."""
+    # Default config if not provided
+    if config is None:
+        config = {}
+    
     # Normalize column names: replace spaces with underscores and lowercase all names
     df.columns = df.columns.str.strip().str.replace(' ', '_').str.lower()
 
@@ -125,14 +134,21 @@ def write_combined_data_xlsx(
     config=None
 ):
     """Write Combined Data sheet to Excel file with formulas for dynamic calculations."""
+    # Default config if not provided
+    if config is None:
+        config = {}
+    
     df_out = reorder_and_fill_combined_data(
         df_merged,
         surveys_entered_threshold=surveys_entered_threshold,
         conversion_rate_threshold=conversion_rate_threshold,
         security_terms_threshold=security_terms_threshold,
-        negative_recs_rate_threshold=negative_recs_rate_threshold
+        negative_recs_rate_threshold=negative_recs_rate_threshold,
+        config=config
     )
-    print("DEBUG: df_out security_terms_rate sample:", df_out['security_terms_rate'].head() if 'security_terms_rate' in df_out.columns else "not found")
+    
+    # Remove debug sample output
+    # print("DEBUG: df_out security_terms_rate sample:", df_out['security_terms_rate'].head() if 'security_terms_rate' in df_out.columns else "not found")
     
     # Define formula columns that should not be written as data
     formula_columns = ['Speeder', 'High_LOI', 'Poor_Conv_Rate', 'High_Security', 'New_User_Bot', 'High_RR', 'No_Enough_Data', 'Flag_Count', 'Tenure', 'PrioFlag', 'Tenure_Group', 'entrydate_split']  # Added 'entrydate_split'
@@ -559,8 +575,13 @@ def write_combined_data_xlsx(
                 'security_terms_threshold': security_terms_threshold,
                 'negative_recs_rate_threshold': negative_recs_rate_threshold,
                 'is_pid_only_mode': is_pid_only_mode,
-                'debug': True
+                'user_feedback': True,
+                'debug': False
             }
+        
+        if config.get('user_feedback', True):
+            print("Creating pivot tables and analysis sheets...")
+        
         # Call each pivot sheet function
         pivot_sheet1.write_flag_pivot(workbook, df_out, config)
         pivot_sheet2.write_prioflag_pivot(workbook, df_out, config)        

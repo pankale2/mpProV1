@@ -3,9 +3,11 @@ import pandas as pd
 from xlsxwriter.utility import xl_col_to_name
 
 def write_entrydateflags_pivot(workbook, df_out, config):
-    if config.get('debug'):
-        print("[DEBUG] Creating EntrydateFlags Pivot sheet")
-
+    """Create Pivot EntryDate × Flags time-series analysis sheet"""
+    
+    if config.get('user_feedback', True):
+        print("Creating Pivot EntryDate × Flags analysis")
+    
     sheet_name = "EntrydateFlags Pivot"
     headers = [
         "Entry Date↓",

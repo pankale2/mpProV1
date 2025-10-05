@@ -128,6 +128,13 @@ def index():
                         return render_template('index.html', top_surveyids=[], top_counts=[]), 400
                     
                     metrics_file_storage.stream.seek(0)
+                    
+                    # Create config for processing with debug levels
+                    processing_config = {
+                        'user_feedback': True,  # Always show user feedback
+                        'debug': False  # Set to True for detailed debugging
+                    }
+                    
                     output_path = controller.generate_pid_only_report(
                         metrics_file_stream=metrics_file_storage.stream,
                         output_dir=OUTPUT_FOLDER,
@@ -135,7 +142,8 @@ def index():
                         security_terms_threshold=security_terms_threshold,
                         negative_recs_rate_threshold=negative_recs_rate_threshold,
                         surveys_entered_threshold=surveys_entered_threshold,
-                        is_pid_only_mode=True  # Added parameter
+                        is_pid_only_mode=True,
+                        config=processing_config
                     )
                     flash('Processing complete! Your download should start automatically.', 'success')
                     session['just_processed'] = True
@@ -221,6 +229,13 @@ def index():
                 # --- Process files using streams/paths ---
                 rid_file_storage.stream.seek(0)
                 metrics_file_storage.stream.seek(0)
+                
+                # Create config for processing with debug levels
+                processing_config = {
+                    'user_feedback': True,  # Always show user feedback
+                    'debug': False  # Set to True for detailed debugging
+                }
+                
                 report_path_final = controller.generate_survey_report(
                     rid_file_storage.stream, metrics_file_storage.stream,
                     survey_loi_mapping, OUTPUT_FOLDER,
@@ -232,7 +247,8 @@ def index():
                     surveys_entered_threshold=surveys_entered_threshold,
                     is_pid_only_mode=False,
                     is_average_loi_mode=is_average_loi_mode,
-                    average_loi_value=average_loi_value
+                    average_loi_value=average_loi_value,
+                    config=processing_config
                 )
 
                 # Read surveyids for UI (top 3 by count)

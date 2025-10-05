@@ -3,8 +3,10 @@ import pandas as pd
 from xlsxwriter.utility import xl_col_to_name
 
 def write_prioflag_pivot(workbook, df_out, config):
-    if config.get('debug'):
-        print("[DEBUG] Creating PrioFlag Pivot sheet")
+    """Create PrioFlag Pivot sheet with suppliers × priority observations analysis"""
+    
+    if config.get('user_feedback', True):
+        print("Creating Flags Pivot (Priority) sheet")
     
     # Add a new worksheet for the pivot table
     pivot_ws = workbook.add_worksheet('PrioFlag Pivot')

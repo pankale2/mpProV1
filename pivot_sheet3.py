@@ -4,9 +4,11 @@ from xlsxwriter.utility import xl_col_to_name
 
 
 def write_multiflag_pivot(workbook, df_out, config):
-    if config.get('debug'):
-        print("[DEBUG] Creating MultiFlag Pivot sheet")
-
+    """Create MultiFlag Pivot sheet with suppliers × all applicable flags analysis"""
+    
+    if config.get('user_feedback', True):
+        print("Creating Flags Pivot (Multi) sheet")
+    
     sheet_name = "MultiFlag Pivot"
     headers = [
         "Supplier ↓",

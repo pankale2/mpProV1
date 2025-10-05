@@ -2,6 +2,11 @@ import pandas as pd
 from xlsxwriter.utility import xl_col_to_name
 
 def write_denylist_draft(workbook, df_out, config):
+    """Create DenyList_Draft sheet with filtered flagged records"""
+    
+    if config.get('user_feedback', True):
+        print("Creating DenyList Draft sheet")
+    
     if config.get('debug'):
         print("[DEBUG] Creating DenyList_Draft sheet")
         print("[DEBUG] DenyList_Draft: df_out shape:", df_out.shape)

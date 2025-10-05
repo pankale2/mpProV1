@@ -17,16 +17,17 @@ Flask-based survey data processor that analyzes RID lookup (CSV) and PID metrics
 - **`pivot_sheet5.py`**: Creates "Pivot EntryDate × Supplier" time-series analysis.
 - **`pivot_sheet6.py`**: Creates "DenyList_Draft" sheet for filtered flagged records.
 - **`run.py`**: Development server that opens the application in a browser and manages session-specific flags.
-- **`templates/index.html`**: Single-page form interface with dynamic UI sections and LOI mode toggle.
-- **`static/js/app.js`**: Handles frontend logic, including form validation, dynamic UI updates, LOI modes, and AJAX-based communication.
+- **`templates/index.html`**: Single-page form interface with dynamic UI sections, drag-and-drop file uploads, and LOI mode toggle.
+- **`static/js/app.js`**: Handles frontend logic, including form validation, dynamic UI updates, LOI modes, drag-and-drop functionality, and AJAX-based communication.
 
 ### Processing Modes
-1. **RID+PID Mode**: Merges RID lookup CSV with PID metrics Excel on `pid` column.
-2. **PID-Only Mode**: Processes only PID metrics file (checkbox or auto-detected).
+**Default Mode**: RID+PID Mode - Merges RID lookup CSV with PID metrics Excel on `pid` column. All 6 observation checks are applied including session-based checks.
+
+*Note: PID-only mode exists in the backend but the mode slider is hidden by default. The application runs in RID+PID mode requiring both files.*
 
 ### LOI Input Modes
-1. **Survey-specific LOI**: Individual LOI values for each survey ID with marketplace links.
-2. **Average LOI**: Single LOI value applied to all surveys with aggregated marketplace link.
+1. **Survey-specific LOI**: Individual LOI values for each survey ID with marketplace links and RID counts.
+2. **Average LOI**: Single LOI value applied to all surveys with aggregated marketplace link to top survey.
 
 ### Key Data Processing Pipeline
 ```

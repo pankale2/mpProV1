@@ -2,11 +2,11 @@ body {
     /* Light mode default */
     font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
     margin: 0; 
-    padding: 20px; 
+    padding: 12px; /* Further reduced from 15px */
     background-color: #f4f7fa; 
     color: #22223b;
-    line-height: 1.6;
-    font-size: 0.95rem; /* Reduced from default */
+    line-height: 1.4; /* Further reduced from 1.5 */
+    font-size: 0.85rem; /* Further reduced from 0.9rem */
 }
 body.dark-mode {
     background-color: #181a20;
@@ -14,11 +14,11 @@ body.dark-mode {
 }
 .container { 
     max-width: 1600px;
-    margin: 5px auto;
+    margin: 3px auto; /* Reduced from 5px auto */
     background-color: #fff; 
-    padding: 10px 10px; /* Reduced from 15px 15px */
-    border-radius: 14px; 
-    box-shadow: 0 6px 24px rgba(34, 34, 59, 0.08); 
+    padding: 6px 6px; /* Further reduced from 8px 8px */
+    border-radius: 10px; /* Further reduced from 12px */
+    box-shadow: 0 4px 16px rgba(34, 34, 59, 0.07); /* Further reduced shadow */
 }
 body.dark-mode .container {
     background-color: #23263a;
@@ -27,34 +27,43 @@ body.dark-mode .container {
 h1 {
     color: #22223b;
     text-align: left;
-    margin-bottom: 28px;
-    margin-top: 5px;
-    font-size: 1.5rem; /* Reduced from 2.2rem */
+    margin-bottom: 18px; /* Further reduced from 22px */
+    margin-top: 4px; /* Reduced from 5px */
+    font-size: 1.25rem; /* Further reduced from 1.35rem */
     font-weight: 700;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px; /* Further reduced from 0.4px */
 }
 body.dark-mode h1 {
     color: #e0e0e0;
 }
 
+/* Make h3 in survey-loi-container more compact and consistent between modes */
+#survey-loi-container h3 {
+  margin-top: 4px;
+  margin-bottom: 10px;
+  font-size: 0.9rem !important; /* Ensure consistent size in both light and dark modes */
+  padding-left: 2px;
+  color: #22223b; /* Explicit light mode color */
+}
+
 /* Add dark mode styling for survey LOI container heading */
 body.dark-mode #survey-loi-container h3 {
     color: #e0e0e0 !important;
-    font-size: 1rem !important; /* Reduced from 1.1rem */
+    font-size: 0.9rem !important; /* Keep same size as light mode */
 }
 
 .main-flex-row {
     display: flex;
     flex-direction: row;
-    gap: 32px;
+    gap: 20px;
 }
 .left-section, .right-section {
-    min-width: 320px;
+    min-width: 280px;
     transition: flex 0.3s, max-width 0.3s;
 }
 .left-section {
     border-right: 1px solid #e0e0e0;
-    padding-right: 32px;
+    padding-right: 20px;
     flex: 1 1 0;
 }
 body.dark-mode .left-section {
@@ -65,53 +74,44 @@ body.dark-mode .left-section {
     flex: 1 1 0;
     display: block;
 }
-.main-flex-row.adv-hidden .left-section {
-    flex: 1 1 100%;
-    max-width: 100%;
-    border-right: none;
-    padding-right: 0;
-}
-.main-flex-row.adv-hidden .right-section {
-    display: none;
-}
 .form-flex-row {
     display: flex;
     flex-direction: column;
-    gap: 15px;
-    margin-bottom: 10px;
+    gap: 10px; /* Further reduced from 12px */
+    margin-bottom: 6px; /* Further reduced from 8px */
 }
 .form-group {
-    flex: 1 1 250px;
-    min-width: 180px; /* Reduced from 220px */
-    margin-bottom: 10px;  /* Reduced from 15px */
+    flex: 1 1 220px;
+    min-width: 150px; /* Further reduced from 160px */
+    margin-bottom: 6px;  /* Further reduced from 8px */
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8px; /* Reduced from 12px */
+    gap: 5px; /* Further reduced from 6px */
 }
 /* Compact form-group for right-section to reduce label gap */
 .right-section .form-group {
     flex: unset;
     min-width: unset;
-    margin-bottom: 15px;
+    margin-bottom: 10px; /* Further reduced from 12px */
     padding-left: 0;
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 8px; /* Reduced from 12px */
+    gap: 4px; /* Further reduced from 6px */
 }
 /* Mode slider should maintain original column layout and dimensions */
 #mode-slider-group {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0 !important;
-    margin-bottom: 20px; /* Reduced from 35px */
+    margin-bottom: 14px; /* Further reduced from 16px */
 }
 
 #mode-slider-group > div {
     display: flex;
     align-items: center;
-    gap: 10px; /* Reduced from 18px */
+    gap: 6px; /* Further reduced from 8px */
 }
 
 /* Ensure both sliders have the same width and appearance */
@@ -119,7 +119,7 @@ body.dark-mode .left-section {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 0 !important;
-    margin-bottom: 20px; /* Consistent margin */
+    margin-bottom: 14px; /* Further reduced from 16px */
     width: 100%; /* Ensure full width for both */
 }
 
@@ -127,15 +127,15 @@ body.dark-mode .left-section {
 #loi-mode-slider-group > div {
     display: flex;
     align-items: center;
-    gap: 10px; /* Consistent gap */
+    gap: 6px; /* Further reduced from 8px */
     width: auto;
 }
 
 #mode-slider-group .switch,
 #loi-mode-slider-group .switch {
-    min-width: 54px !important;
-    width: 54px !important;
-    max-width: 54px !important;
+    min-width: 44px !important; /* Further reduced from 48px */
+    width: 44px !important; /* Further reduced from 48px */
+    max-width: 44px !important; /* Further reduced from 48px */
 }
 
 #mode-slider-group .slider,
@@ -170,9 +170,9 @@ label {
     margin-bottom: 0;
     font-weight: 600;
     color: #22223b;
-    font-size: 0.95rem; /* Reduced from 1rem */
-    letter-spacing: 0.1px;
-    min-width: 200px;
+    font-size: 0.85rem; /* Further reduced from 0.9rem */
+    letter-spacing: 0;
+    min-width: 170px; /* Further reduced from 180px */
     flex-shrink: 0;
 }
 body.dark-mode label, body.dark-mode .form-group label {
@@ -181,13 +181,13 @@ body.dark-mode label, body.dark-mode .form-group label {
 input[type="file"], 
 input[type="number"] { 
     flex: 1;
-    min-width: 50px;
-    padding: 6px 8px; /* Reduced from 10px 12px */
+    min-width: 45px; /* Further reduced from 50px */
+    padding: 4px 6px; /* Further reduced from 5px 7px */
     border: 1px solid #bfc9d1;
-    border-radius: 6px;
+    border-radius: 4px; /* Further reduced from 5px */
     box-sizing: border-box;
     margin-bottom: 0;
-    font-size: 0.95rem; /* Reduced from 1rem */
+    font-size: 0.85rem; /* Further reduced from 0.9rem */
     background: #f8fafc;
     color: #22223b;
     transition: border-color 0.2s;
@@ -209,15 +209,15 @@ input[type="file"] {
 input[type="submit"], button[type="button"] { 
     background-color: #2a0b57;
     color: #fff; 
-    padding: 9px 16px; /* Reduced from 13px 22px */
+    padding: 6px 12px; /* Further reduced from 7px 14px */
     border: none; 
-    border-radius: 6px; 
+    border-radius: 4px; /* Further reduced from 5px */
     cursor: pointer; 
-    font-size: 1rem; /* Reduced from 1.1rem */
+    font-size: 0.9rem; /* Further reduced from 0.95rem */
     font-weight: 600;
     transition: background 0.2s, color 0.2s;
-    margin-top: 10px;
-    box-shadow: 0 2px 8px rgba(42,11,87,0.08);
+    margin-top: 6px; /* Further reduced from 8px */
+    box-shadow: 0 2px 4px rgba(42,11,87,0.07); /* Further reduced shadow */
 }
 body.dark-mode input[type="submit"], body.dark-mode button[type="button"] {
     background-color: #6502f5;
@@ -301,18 +301,18 @@ body.dark-mode .info-icon {
 .info-popup {
     display: none;
     position: absolute;
-    left: 30px;
-    top: 0;
+    right: 0; /* Changed from left: 25px to right: 0 for right-aligned info icon */
+    top: 30px; /* Adjusted top position */
     z-index: 10;
     background: #fff;
     color: #22223b;
     border: 1px solid #cd25f1;
-    border-radius: 8px;
-    padding: 18px 22px 18px 22px;
-    min-width: 440px;
-    max-width: 820px;
-    font-size: 0.8rem;
-    box-shadow: 0 4px 16px rgba(34,34,59,0.12);
+    border-radius: 6px;
+    padding: 12px 15px;
+    min-width: 380px;
+    max-width: 780px;
+    font-size: 0.7rem;
+    box-shadow: 0 3px 10px rgba(34,34,59,0.1);
     text-align: left;
     font-weight: normal;
 }
@@ -341,13 +341,19 @@ body.dark-mode .info-popup {
     list-style: none; 
     padding: 0; 
     margin-bottom: 20px;
+    text-align: center; /* Center-align the container */
 }
 .flash-messages li { 
-    padding: 12px 15px; 
-    margin-bottom: 10px; 
-    border-radius: 6px;
+    padding: 8px 10px; /* Further reduced from 10px 12px */
+    margin-bottom: 6px; /* Further reduced from 8px */
+    border-radius: 4px; /* Further reduced from 5px */
     border: 1px solid transparent;
-    font-size: 1rem;
+    font-size: 0.9rem; /* Further reduced from 0.95rem */
+    /* display: inline-block; /* Allow centering of individual messages */
+    text-align: center; /* Center-align text within each message */
+    /* max-width: 90%; /* Prevent messages from being too wide */
+    margin-left: auto; /* Center the message box */
+    margin-right: auto; /* Center the message box */
 }
 .flash-messages li.error {
     background-color: #ffe5e5;
@@ -369,11 +375,60 @@ body.dark-mode .flash-messages li.success {
     border-color: #008cba;
     color: #b3eaf7;
 }
+/* Add dark mode support for vertical dividers in main content areas */
+.main-content-left {
+    border-right: 1px solid #e0e0e0;
+    padding-right: 20px;
+}
+
+body.dark-mode .main-content-left {
+    border-right-color: #444;
+}
+
+/* Update existing left-section styles to include dark mode for vertical divider */
+.left-section {
+    border-right: 1px solid #e0e0e0;
+    padding-right: 20px;
+    flex: 1 1 0;
+}
+body.dark-mode .left-section {
+    border-right-color: #444;
+}
+
+/* Add dark mode support for any inline vertical dividers */
+body.dark-mode div[style*="border-right: 1px solid #e0e0e0"] {
+    border-right-color: #444 !important;
+}
+
+/* Clean up: Remove old advanced options toggle related styles that are no longer needed */
+/* Removed: .main-flex-row.adv-hidden styles since we no longer hide sections */
+
+/* Update responsive styles to maintain vertical divider on small screens */
 @media (max-width: 900px) {
     .container { max-width: 99vw; }
-    .main-flex-row { flex-direction: column; gap: 0; }
-    .left-section, .right-section { min-width: 0; padding: 0; border: none; }
+    /* Keep side-by-side layout even on smaller screens */
+    .main-flex-row { 
+        flex-direction: row; 
+        gap: 15px; 
+    }
+    .left-section, .right-section { 
+        min-width: 0; 
+        padding: 0 10px; 
+        border: none; 
+    }
+    .left-section {
+        border-right: 1px solid #e0e0e0;
+        padding-right: 10px;
+    }
+    body.dark-mode .left-section {
+        border-right-color: #444;
+    }
+    /* Also apply to any inline styled vertical dividers */
+    body.dark-mode div[style*="border-right: 1px solid #e0e0e0"] {
+        border-right-color: #444 !important;
+    }
 }
+
 @media (max-width: 600px) {
     .info-popup { font-size: 0.9rem; }
 }
@@ -392,8 +447,8 @@ body.dark-mode #date-mode-group .slider {
 .switch {
   position: relative;
   display: inline-block;
-  width: 54px;
-  height: 28px;
+  width: 44px; /* Further reduced from 48px */
+  height: 22px; /* Further reduced from 25px */
   vertical-align: middle;
 }
 .switch input {
@@ -418,32 +473,32 @@ body.dark-mode .slider {
 .slider:before {
   position: absolute;
   content: "";
-  height: 22px;
-  width: 22px;
-  left: 4px;
+  height: 16px; /* Further reduced from 19px */
+  width: 16px; /* Further reduced from 19px */
+  left: 3px;
   bottom: 3px;
   background-color: #fff;
   transition: .3s;
   border-radius: 50%;
-  box-shadow: 0 2px 6px rgba(42,11,87,0.13);
+  box-shadow: 0 1px 3px rgba(42,11,87,0.1); /* Further reduced shadow */
 }
 input:checked + .slider {
   background-color: #cd25f1;
 }
 input:checked + .slider:before {
-  transform: translateX(26px);
+  transform: translateX(22px); /* Adjusted from 23px for smaller switch */
 }
 input:checked + .slider {
   background-color: #cd25f1;
 }
 input:checked + .slider:before {
-  transform: translateX(26px);
+  transform: translateX(22px); /* Adjusted from 23px for smaller switch */
 }
 .form-subgroup {
   border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 8px; /* Reduced from 10px */
-  margin-top: 5px;  /* Reduced from 10px */
+  border-radius: 5px; /* Further reduced from 6px */
+  padding: 5px; /* Further reduced from 6px */
+  margin-top: 3px;  /* Further reduced from 4px */
   background-color: #f8fafc;
 }
 
@@ -454,8 +509,8 @@ body.dark-mode .form-subgroup {
 
 .form-subgroup h4 {
   margin-top: 0;
-  margin-bottom: 5px;  /* Reduced from 10px */
-  font-size: 1rem; /* Reduced from 1.1rem */
+  margin-bottom: 3px;  /* Further reduced from 4px */
+  font-size: 0.9rem; /* Further reduced from 0.95rem */
   font-weight: 600;
   color: #22223b;
 }
@@ -467,23 +522,365 @@ body.dark-mode .form-subgroup h4 {
 /* Dark mode support for standalone h4 headers in advanced options */
 .right-section h4 {
   color: #22223b;
-  margin-bottom: 2px;  /* Reduced from 5px */
-  font-size: 1rem; /* Reduced from 1.1rem */
+  margin-bottom: 1px; 
+  font-size: 0.9rem; /* Further reduced from 0.95rem */
 }
 
 body.dark-mode .right-section h4 {
   color: #e0e0e0;
 }
-.historical-checks-divider {
-}
 
-body.dark-mode .historical-checks-divider {
-}
+/* Ensure section dividers span full width */
 .section-divider {
   border-top: 1px solid #e0e0e0;
-  margin: 3px 0; /* Reduced from 5px 0 */
+  margin: 1px 0;
+  width: 100%;
 }
 
 body.dark-mode .section-divider {
   border-color: #444;
+}
+
+/* Add border and styling to survey-loi-container matching form-subgroup */
+#survey-loi-container {
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  padding: 5px;
+  margin-top: 3px;
+  background-color: #f8fafc;
+}
+
+body.dark-mode #survey-loi-container {
+  border-color: #444;
+  background-color: #23263a;
+}
+
+/* Make h3 in survey-loi-container more compact and consistent between modes */
+#survey-loi-container h3 {
+  margin-top: 4px;
+  margin-bottom: 10px;
+  font-size: 0.9rem !important; /* Ensure consistent size in both light and dark modes */
+  padding-left: 2px;
+  color: #22223b; /* Explicit light mode color */
+}
+
+/* Add dark mode styling for survey LOI container heading */
+body.dark-mode #survey-loi-container h3 {
+    color: #e0e0e0 !important;
+    font-size: 0.9rem !important; /* Keep same size as light mode */
+}
+
+/* Adjust survey-loi-inputs for better spacing */
+#survey-loi-inputs {
+  padding: 0 2px 3px 2px;
+}
+
+/* Make loi-mode-slider-group more compact */
+#loi-mode-slider-group {
+  margin-bottom: 8px !important;
+  padding-top: 3px;
+}
+
+/* Adjust the info icon positioning for the new header layout */
+.info-icon {
+    display: inline-block;
+    margin-left: 8px;
+    color: #cd25f1;
+    background: #f4f7fa;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    text-align: center;
+    font-weight: normal;
+    font-size: 1.1rem;
+    line-height: 22px;
+    cursor: pointer;
+    border: 1px solid #cd25f1;
+    text-decoration: none;
+    vertical-align: middle;
+    position: relative;
+}
+
+/* Drag and Drop Zones - Updated for 2-section layout */
+.drag-drop-zone {
+    border: 2px dashed #bfc9d1;
+    border-radius: 8px;
+    padding: 10px; /* Reduced from 20px */
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f8fafc;
+    margin-bottom: 5px; /* Reduced from 10px */
+    min-height: 50px; /* Reduced from 80px */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.drag-drop-zone:hover {
+    border-color: #cd25f1;
+    background: #f4f7fa;
+}
+
+.drag-drop-zone.drag-over {
+    border-color: #cd25f1;
+    background: rgba(205, 37, 241, 0.05);
+    border-style: solid;
+}
+
+body.dark-mode .drag-drop-zone {
+    background: #23263a;
+    border-color: #444;
+}
+
+body.dark-mode .drag-drop-zone:hover {
+    border-color: #cd25f1;
+    background: #2a2d42;
+}
+
+body.dark-mode .drag-drop-zone.drag-over {
+    background: rgba(205, 37, 241, 0.1);
+}
+
+.drag-drop-content {
+    display: flex;
+    flex-direction: row; /* Horizontal layout */
+    align-items: center;
+    gap: 0; /* No gap between sections */
+    width: 100%;
+}
+
+.drag-drop-left-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    flex: 1; /* Equal width */
+    text-align: left;
+}
+
+.drag-drop-right-section {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1; /* Equal width */
+    text-align: center;
+    border-left: 1px solid rgba(191, 201, 209, 0.3); /* Subtle divider */
+    padding-left: 12px;
+}
+
+body.dark-mode .drag-drop-right-section {
+    border-left-color: rgba(68, 68, 68, 0.5);
+}
+
+.drag-drop-icon {
+    font-size: 2rem; /* Keep current size as requested */
+    opacity: 0.7;
+    flex-shrink: 0; /* Don't shrink icon */
+}
+
+.drag-drop-text-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px; /* Small gap between text lines */
+    flex: 1; /* Take remaining space in left section */
+}
+
+.drag-drop-text {
+    font-size: 1rem; /* Increased from 0.85rem */
+    color: #22223b;
+    line-height: 1.4;
+}
+
+.drag-drop-text strong {
+    color: #2a0b57;
+    font-weight: 600;
+}
+
+body.dark-mode .drag-drop-text {
+    color: #e0e0e0;
+}
+
+body.dark-mode .drag-drop-text strong {
+    color: #cd25f1;
+}
+
+.drag-drop-instruction {
+    font-size: 1rem; /* Increased from 0.85rem */
+    color: #666;
+    line-height: 1.4;
+    font-style: italic;
+}
+
+body.dark-mode .drag-drop-instruction {
+    color: #b0b0b0;
+}
+
+/* File Preview Styles */
+.file-preview {
+    background: #e6f7f9;
+    border: 1px solid #b3eaf7;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+}
+
+body.dark-mode .file-preview {
+    background: #233a3a;
+    border-color: #008cba;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-icon {
+    font-size: 1.2rem;
+    opacity: 0.8;
+}
+
+.file-details {
+    flex: 1;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #22223b;
+    margin-bottom: 2px;
+}
+
+body.dark-mode .file-name {
+    color: #e0e0e0;
+}
+
+.file-stats {
+    color: #666;
+    font-size: 0.8rem;
+}
+
+body.dark-mode .file-stats {
+    color: #b3eaf7;
+}
+
+.remove-file-btn {
+    background: none;
+    border: none;
+    color: #cd25f1;
+    font-size: 1.2rem;
+    font-weight: bold;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.remove-file-btn:hover {
+    background: rgba(205, 37, 241, 0.1);
+}
+
+/* Hide mode slider group */
+#mode-slider-group {
+    display: none !important;
+}
+
+/* New styles for title area matching process button */
+.title-area {
+    background-color: #2a0b57;
+    color: #fff;
+    padding: 10px 20px; /* Adjusted to match process button height while accounting for full width */
+    border: none;
+    border-radius: 6px;
+    margin-bottom: 18px;
+    transition: background 0.2s, color 0.2s;
+    box-shadow: 0 2px 4px rgba(42,11,87,0.07);
+}
+
+body.dark-mode .title-area {
+    background-color: #6502f5;
+    color: #fff;
+}
+
+/* Update h1 styling when inside title area */
+.title-area h1 {
+    color: #fff !important;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin: 0;
+    padding: 0;
+}
+
+body.dark-mode .title-area h1 {
+    color: #fff !important;
+}
+
+/* Update info icon styling for title area */
+.title-info-icon {
+    display: inline-block;
+    margin-left: 8px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    text-align: center;
+    font-weight: normal;
+    font-size: 1.1rem;
+    line-height: 22px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-decoration: none;
+    vertical-align: middle;
+    position: relative;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.title-info-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+}
+
+body.dark-mode .title-info-icon {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+body.dark-mode .title-info-icon:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Update mode slider styling for title area when visible */
+.title-area #mode-slider-group span {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 600;
+}
+
+.title-area #mode-slider-group .switch .slider {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.title-area #mode-slider-group input:checked + .slider {
+    background-color: rgba(255, 255, 255, 0.4);
+}
+
+body.dark-mode .title-area #mode-slider-group span {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+body.dark-mode .title-area #mode-slider-group .switch .slider {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+body.dark-mode .title-area #mode-slider-group input:checked + .slider {
+    background-color: rgba(255, 255, 255, 0.4);
 }

@@ -6,10 +6,6 @@ const ridFileInput = document.getElementById('rid_file');
 const metricsFileInput = document.getElementById('metrics_file');
 const surveyLoiContainer = document.getElementById('survey-loi-container');
 const surveyLoiInputsDiv = document.getElementById('survey-loi-inputs');
-const showAdvancedBtnRow = document.getElementById('show-advanced-btn-row');
-const toggleBtn = document.getElementById('toggle-advanced-btn');
-const advOptions = document.getElementById('advanced-options');
-const mainFlexRow = document.getElementById('main-flex-row');
 const processBtn = document.getElementById('process-btn');
 const modeSlider = document.getElementById('mode_slider');
 const darkModeToggle = document.getElementById('dark-mode-toggle');
@@ -17,8 +13,6 @@ const infoIcon = document.getElementById('info-icon');
 const infoPopup = document.getElementById('info-popup');
 const infoPopupClose = document.getElementById('info-popup-close');
 const loiModeSlider = document.getElementById('loi_mode_slider');
-const loiModeLabelSurveywise = document.getElementById('loi-mode-label-surveywise');
-const loiModeLabelAvg = document.getElementById('loi-mode-label-avg');
 const marketplaceLinkContainer = document.getElementById('marketplace-link-container');
 const marketplaceHyperlink = document.getElementById('marketplace-hyperlink');
 const marketplaceLabel = document.getElementById('marketplace-label');
@@ -29,15 +23,16 @@ function isAverageLoiMode() {
   return loiModeSlider && loiModeSlider.checked;
 }
 
-let advVisible = false;
-
-// Message area for JS alerts
+// Message area for JS alerts - updated to place at bottom
 let jsMsgDiv = document.getElementById('js-msg-div');
 if (!jsMsgDiv) {
   jsMsgDiv = document.createElement('div');
   jsMsgDiv.id = 'js-msg-div';
-  jsMsgDiv.style.marginBottom = '16px';
-  document.querySelector('.container').insertBefore(jsMsgDiv, document.querySelector('form'));
+  jsMsgDiv.style.marginTop = '15px'; // Changed from marginBottom
+  // Insert before spinner overlay instead of before form
+  const container = document.querySelector('.container');
+  const spinnerOverlay = document.getElementById('processing-overlay');
+  container.insertBefore(jsMsgDiv, spinnerOverlay);
 }
 
 // Accumulate messages in an array
@@ -59,30 +54,13 @@ function clearJsMessages() {
   showJsMessages();
 }
 
-// Toggle advanced options visibility
-toggleBtn.addEventListener('click', function() {
-  console.log('Toggle advanced button clicked'); // Debug log
-  advVisible = !advVisible;
-  advOptions.style.display = advVisible ? 'block' : 'none';
-  mainFlexRow.classList.toggle('adv-hidden', !advVisible);
-  toggleBtn.textContent = advVisible ? 'Hide Advanced Options' : 'Show Advanced Options';
-});
-
 // Store parsed data for cross-file checks
 let ridData = null;
-let ridStatus26Count = 0;
-let ridPIDs = [];
-let ridSurveyCounts = [];
-let ridSurveyLinksHtml = '';
 let metricsData = null;
-let metricsPIDs = [];
 
 function showLoiGroup() {
-  if (!isPidOnlyMode() && ridData && allSurveyIds.length > 0) {
-      surveyLoiContainer.style.display = 'block';
-  } else {
-      surveyLoiContainer.style.display = 'none';
-  }
+  // Always show the container - no conditional logic
+  surveyLoiContainer.style.display = 'block';
 }
 
 function validateSurveyLoi(surveyId, value) {
@@ -108,7 +86,6 @@ function getTopSurveyId(surveyIdsObj) {
 // Render LOI input(s) based on mode
 function renderLoiInputs(surveyData) {
   surveyLoiInputsDiv.innerHTML = '';
-  allSurveyIds = Object.keys(surveyData);
   surveyLoiValid = {};
 
   if (isAverageLoiMode()) {
@@ -117,7 +94,7 @@ function renderLoiInputs(surveyData) {
     inputGroup.className = 'form-group';
 
     const label = document.createElement('label');
-    label.innerHTML = `Estimated/Completion/Average/Median LOI:`;
+    label.innerHTML = `Survey LOI (to compare with the session_loi of each RID): `;
 
     const input = document.createElement('input');
     input.type = 'number';
@@ -126,7 +103,7 @@ function renderLoiInputs(surveyData) {
     input.min = '3';
     input.max = '100';
     input.step = '0.1';
-    input.required = true;
+    input.required = false; // Not required initially
     input.placeholder = 'Enter LOI (3-100)';
 
     input.addEventListener('input', function() {
@@ -142,56 +119,76 @@ function renderLoiInputs(surveyData) {
     inputGroup.appendChild(input);
     surveyLoiInputsDiv.appendChild(inputGroup);
 
-    // Show "Marketplace" as hyperlink
-    marketplaceLabel.style.display = 'none';
-    marketplaceLinkContainer.style.display = 'inline';
-    // Set hyperlink to top surveyid
-    const topSurveyId = getTopSurveyId(surveyData);
-    if (topSurveyId) {
-      marketplaceHyperlink.href = `https://www.samplicio.us/fulcrum/next/surveys/${topSurveyId}/reports`;
+    // Always set allSurveyIds for Average LOI mode
+    if (surveyData && Object.keys(surveyData).length > 0) {
+      allSurveyIds = Object.keys(surveyData);
+      // Show "Marketplace" as hyperlink when survey data is available
+      marketplaceLabel.style.display = 'none';
+      marketplaceLinkContainer.style.display = 'inline';
+      // Set hyperlink to top surveyid
+      const topSurveyId = getTopSurveyId(surveyData);
+      if (topSurveyId) {
+        marketplaceHyperlink.href = `https://www.samplicio.us/fulcrum/next/surveys/${topSurveyId}/reports`;
+      } else {
+        marketplaceHyperlink.href = '#';
+      }
     } else {
-      marketplaceHyperlink.href = '#';
+      allSurveyIds = [];
+      // Show static "Get from Marketplace" text when no survey data
+      marketplaceLabel.style.display = 'inline';
+      marketplaceLinkContainer.style.display = 'none';
     }
   } else {
     // Survey-wise LOI mode: show all inputs
     marketplaceLabel.style.display = 'inline';
     marketplaceLinkContainer.style.display = 'none';
 
-    // Sort surveys by occurrence count (descending)
-    const sortedSurveys = Object.entries(surveyData)
-      .sort(([,a], [,b]) => b - a);
+    if (surveyData && Object.keys(surveyData).length > 0) {
+      allSurveyIds = Object.keys(surveyData);
+      
+      // Sort surveys by occurrence count (descending)
+      const sortedSurveys = Object.entries(surveyData)
+        .sort(([,a], [,b]) => b - a);
 
-    sortedSurveys.forEach(([surveyId, count]) => {
-      const inputGroup = document.createElement('div');
-      inputGroup.className = 'form-group';
+      sortedSurveys.forEach(([surveyId, count]) => {
+        const inputGroup = document.createElement('div');
+        inputGroup.className = 'form-group';
 
-      const label = document.createElement('label');
-      label.innerHTML = `Survey ID: <a href="https://www.samplicio.us/fulcrum/next/surveys/${surveyId}/reports" target="_blank" style="color: #cd25f1; font-weight: bold;">${surveyId}</a> <span style="color: #666;">(${count} RIDs)</span>:`;
+        const label = document.createElement('label');
+        label.innerHTML = `Survey ID: <a href="https://www.samplicio.us/fulcrum/next/surveys/${surveyId}/reports" target="_blank" style="color: #cd25f1; font-weight: bold;">${surveyId}</a> <span style="color: #666;">(${count} RIDs)</span>:`;
 
-      const input = document.createElement('input');
-      input.type = 'number';
-      input.name = `survey_loi_${surveyId}`;
-      input.id = `survey_loi_${surveyId}`;
-      input.min = '3';
-      input.max = '100';
-      input.step = '0.1';
-      input.required = true;
-      input.placeholder = 'Enter LOI (3-100)';
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.name = `survey_loi_${surveyId}`;
+        input.id = `survey_loi_${surveyId}`;
+        input.min = '3';
+        input.max = '100';
+        input.step = '0.1';
+        input.required = false; // Will be validated via updateProcessBtnState
+        input.placeholder = 'Enter LOI (3-100)';
 
-      input.addEventListener('input', function() {
-        const isValid = validateSurveyLoi(surveyId, this.value);
-        this.style.borderColor = isValid ? '' : '#e53935';
-        this.style.background = isValid ? '' : '#fff5f5';
-        updateProcessBtnState();
+        input.addEventListener('input', function() {
+          const isValid = validateSurveyLoi(surveyId, this.value);
+          this.style.borderColor = isValid ? '' : '#e53935';
+          this.style.background = isValid ? '' : '#fff5f5';
+          updateProcessBtnState();
+        });
+
+        inputGroup.appendChild(label);
+        inputGroup.appendChild(input);
+        surveyLoiInputsDiv.appendChild(inputGroup);
+
+        // Initialize validation state
+        surveyLoiValid[surveyId] = false;
       });
-
-      inputGroup.appendChild(label);
-      inputGroup.appendChild(input);
-      surveyLoiInputsDiv.appendChild(inputGroup);
-
-      // Initialize validation state
-      surveyLoiValid[surveyId] = false;
-    });
+    } else {
+      allSurveyIds = [];
+      // Show a message that RID file is needed for survey-specific mode
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'form-group';
+      messageDiv.innerHTML = '<p style="color: #666; font-style: italic;">Upload RID file to see survey-specific LOI inputs</p>';
+      surveyLoiInputsDiv.appendChild(messageDiv);
+    }
   }
 }
 
@@ -203,10 +200,9 @@ function createSurveyLoiInputs(surveyData) {
 // Add LOI mode slider event
 if (loiModeSlider) {
   loiModeSlider.addEventListener('change', function() {
-    if (ridData && allSurveyIds.length > 0) {
-      // Re-render LOI inputs on mode change
-      // surveyIds object: {surveyid: count, ...}
-      let surveyIds = {};
+    // Always re-render LOI inputs on mode change, regardless of RID data
+    let surveyIds = {};
+    if (ridData) {
       ridData.forEach(row => {
         const keys = Object.keys(row);
         const surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
@@ -217,13 +213,13 @@ if (loiModeSlider) {
           }
         }
       });
-      renderLoiInputs(surveyIds);
-      updateProcessBtnState();
     }
+    renderLoiInputs(surveyIds); // Pass survey data or empty object
+    updateProcessBtnState();
   });
 }
 
-// Update updateProcessBtnState for Average LOI mode
+// Update updateProcessBtnState for new LOI container behavior
 function updateProcessBtnState() {
   let disabled = false;
   let tooltip = "";
@@ -251,21 +247,26 @@ function updateProcessBtnState() {
     } else if (!metricsData) {
       disabled = true;
       tooltip = "Please upload the PID Metrics file.";
-    } else if (allSurveyIds.length > 0) {
+    } else {
+      // LOI validation logic based on mode and data availability
       if (isAverageLoiMode()) {
-        // Check single average LOI input
-        const avgLoiInput = document.getElementById('average_loi');
-        const isValid = avgLoiInput && !isNaN(parseFloat(avgLoiInput.value)) && parseFloat(avgLoiInput.value) >= 3 && parseFloat(avgLoiInput.value) <= 100;
-        if (!isValid) {
-          disabled = true;
-          tooltip = "Please enter a valid Average LOI value (3-100).";
+        // Average LOI mode: only validate if RID file has survey data
+        if (allSurveyIds.length > 0) {
+          const avgLoiInput = document.getElementById('average_loi');
+          const isValid = avgLoiInput && !isNaN(parseFloat(avgLoiInput.value)) && parseFloat(avgLoiInput.value) >= 3 && parseFloat(avgLoiInput.value) <= 100;
+          if (!isValid) {
+            disabled = true;
+            tooltip = "Please enter a valid Average LOI value (3-100).";
+          }
         }
       } else {
-        // Check if all survey LOI inputs are valid
-        const invalidSurveys = allSurveyIds.filter(sid => !surveyLoiValid[sid]);
-        if (invalidSurveys.length > 0) {
-          disabled = true;
-          tooltip = `Please enter valid LOI values for all surveys. Missing/invalid: ${invalidSurveys.join(', ')}`;
+        // Survey-specific LOI mode: validate all survey inputs if data exists
+        if (allSurveyIds.length > 0) {
+          const invalidSurveys = allSurveyIds.filter(sid => !surveyLoiValid[sid]);
+          if (invalidSurveys.length > 0) {
+            disabled = true;
+            tooltip = `Please enter valid LOI values for all surveys. Missing/invalid: ${invalidSurveys.join(', ')}`;
+          }
         }
       }
     }
@@ -390,6 +391,7 @@ modeSlider.addEventListener('change', function() {
   
   // Find the Current session checks subgroup by looking for the parent .form-subgroup of speeder-group
   const currentSessionSubgroup = speederGroup ? speederGroup.closest('.form-subgroup') : null;
+  const currentSessionHeader = document.getElementById('current-session-header');
   
   if (isPidOnlyMode()) {
     ridFileInput.removeAttribute('required');
@@ -405,9 +407,9 @@ modeSlider.addEventListener('change', function() {
     if (currentSessionSubgroup) {
       currentSessionSubgroup.style.display = 'none';
     }
-    // Hide the header and divider
-    document.getElementById('current-session-header').style.display = 'none';
-    document.getElementById('section-divider').style.display = 'none';
+    if (currentSessionHeader) {
+      currentSessionHeader.style.display = 'none';
+    }
   } else {
     ridFileInput.setAttribute('required', 'required');
     ridFileInput.disabled = false;
@@ -416,9 +418,9 @@ modeSlider.addEventListener('change', function() {
     if (currentSessionSubgroup) {
       currentSessionSubgroup.style.display = '';
     }
-    // Show the header and divider
-    document.getElementById('current-session-header').style.display = '';
-    document.getElementById('section-divider').style.display = '';
+    if (currentSessionHeader) {
+      currentSessionHeader.style.display = '';
+    }
   }
   showLoiGroup();
   updateProcessBtnState();
@@ -583,10 +585,16 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
                     a.remove();
                     
                     document.getElementById('processing-overlay').style.display = 'none';
-                    const flashContainer = document.querySelector('.flash-messages') || document.createElement('ul');
-                    if (!document.querySelector('.flash-messages')) {
+                    // Updated to place success message at bottom
+                    let flashContainer = document.querySelector('.flash-messages');
+                    if (!flashContainer) {
+                        flashContainer = document.createElement('ul');
                         flashContainer.className = 'flash-messages';
-                        document.querySelector('.container').prepend(flashContainer);
+                        flashContainer.style.marginTop = '15px';
+                        // Insert before spinner overlay
+                        const container = document.querySelector('.container');
+                        const spinnerOverlay = document.getElementById('processing-overlay');
+                        container.insertBefore(flashContainer, spinnerOverlay);
                     }
                     flashContainer.innerHTML = `<li class="success">Processing complete! Your download has started.</li>`;
                 });
@@ -613,13 +621,301 @@ document.getElementById('main-form').addEventListener('submit', function(e) {
 document.getElementById('main-form').addEventListener('input', saveFormState);
 document.getElementById('main-form').addEventListener('change', saveFormState);
 
+// Add drag and drop functionality
+function initializeDragAndDrop() {
+    const ridDropZone = document.getElementById('rid-drop-zone');
+    const pidDropZone = document.getElementById('pid-drop-zone');
+    const ridFileInput = document.getElementById('rid_file');
+    const metricsFileInput = document.getElementById('metrics_file');
+
+    // RID Drop Zone
+    if (ridDropZone) {
+        setupDropZone(ridDropZone, ridFileInput, 'csv', processRidFile);
+    }
+
+    // PID Drop Zone  
+    if (pidDropZone) {
+        setupDropZone(pidDropZone, metricsFileInput, 'xlsx', processPidFile);
+    }
+}
+
+function setupDropZone(dropZone, fileInput, expectedType, processCallback) {
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    // Highlight drop zone when item is dragged over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
+    });
+
+    // Handle dropped files
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files, fileInput, expectedType, processCallback);
+    }, false);
+
+    // Handle click to browse
+    dropZone.addEventListener('click', () => {
+        fileInput.click();
+    });
+
+    // Handle file input change
+    fileInput.addEventListener('change', (e) => {
+        const files = e.target.files;
+        handleFiles(files, fileInput, expectedType, processCallback);
+    });
+}
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+function handleFiles(files, fileInput, expectedType, processCallback) {
+    if (files.length === 0) return;
+    
+    const file = files[0];
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    // Validate file type
+    if (fileExtension !== expectedType) {
+        const typeText = expectedType === 'csv' ? 'CSV' : 'Excel (.xlsx)';
+        addJsMessage(`Invalid file type. Please select a ${typeText} file.`, 'error');
+        return;
+    }
+    
+    // Update the hidden file input
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    
+    // Process the file
+    processCallback(file, fileInput);
+}
+
+function processRidFile(file, fileInput) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const text = e.target.result;
+            const workbook = XLSX.read(text, {type: 'string'});
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+            const json = XLSX.utils.sheet_to_json(sheet, {defval: '', raw: false});
+
+            // Find surveyid column (case-insensitive)
+            let surveyidKey = null;
+            if (json.length > 0) {
+                const keys = Object.keys(json[0]);
+                surveyidKey = keys.find(k => k.trim().toLowerCase() === 'surveyid');
+            }
+
+            let surveyIds = {};
+            if (surveyidKey) {
+                json.forEach(row => {
+                    const sid = (row[surveyidKey] || '').trim();
+                    if (sid && sid !== '') {
+                        surveyIds[sid] = (surveyIds[sid] || 0) + 1;
+                    }
+                });
+            }
+
+            ridData = json;
+
+            // Show file preview
+            showFilePreview('rid', file, json.length, Object.keys(surveyIds).length);
+
+            // Always render LOI inputs (with or without survey data)
+            renderLoiInputs(surveyIds);
+
+            // Always show LOI group
+            showLoiGroup();
+            updateProcessBtnState();
+            clearJsMessages();
+        } catch (error) {
+            console.error('Error parsing RID file:', error);
+            addJsMessage('Error processing RID file. Please ensure it\'s a valid CSV format.', 'error');
+            removeFile('rid');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function processPidFile(file, fileInput) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            metricsData = true;
+            
+            // Try to read Excel file to get row count
+            const workbook = XLSX.read(e.target.result, {type: 'arraybuffer'});
+            let rowCount = 0;
+            let uniquePids = 0;
+            
+            if (workbook.SheetNames.includes('Marketplace Metrics by PID')) {
+                const sheet = workbook.Sheets['Marketplace Metrics by PID'];
+                const json = XLSX.utils.sheet_to_json(sheet, {range: 5}); // Skip first 5 rows
+                rowCount = json.length;
+                
+                // Count unique PIDs
+                const pids = new Set();
+                json.forEach(row => {
+                    const pidKey = Object.keys(row).find(k => k.toString().toLowerCase().includes('pid'));
+                    if (pidKey && row[pidKey]) {
+                        pids.add(row[pidKey].toString());
+                    }
+                });
+                uniquePids = pids.size;
+            }
+            
+            // Show file preview
+            showFilePreview('pid', file, rowCount, uniquePids);
+            updateProcessBtnState();
+            clearJsMessages();
+        } catch (error) {
+            console.error('Error reading Metrics file:', error);
+            addJsMessage('Error processing PID file. Please ensure it\'s a valid Excel format.', 'error');
+            removeFile('pid');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function showFilePreview(type, file, totalRecords, uniqueCount) {
+    const previewId = type === 'rid' ? 'rid-file-preview' : 'pid-file-preview';
+    const dropZoneId = type === 'rid' ? 'rid-drop-zone' : 'pid-drop-zone';
+    
+    const preview = document.getElementById(previewId);
+    const dropZone = document.getElementById(dropZoneId);
+    
+    if (preview && dropZone) {
+        // Hide drop zone and show preview
+        dropZone.style.display = 'none';
+        preview.style.display = 'block';
+        
+        // Update preview content
+        const fileName = preview.querySelector('.file-name');
+        const fileStats = preview.querySelector('.file-stats');
+        
+        fileName.textContent = file.name;
+        
+        const sizeText = formatFileSize(file.size);
+        const recordType = type === 'rid' ? 'RIDs' : 'PIDs';
+        const uniqueText = type === 'rid' ? 'Unique Survey IDs' : 'Unique PIDs';
+        
+        fileStats.innerHTML = `${sizeText} • ${totalRecords} records • ${uniqueCount} ${uniqueText}`;
+    }
+}
+
+function removeFile(type) {
+    const previewId = type === 'rid' ? 'rid-file-preview' : 'pid-file-preview';
+    const dropZoneId = type === 'rid' ? 'rid-drop-zone' : 'pid-drop-zone';
+    const fileInputId = type === 'rid' ? 'rid_file' : 'metrics_file';
+    
+    const preview = document.getElementById(previewId);
+    const dropZone = document.getElementById(dropZoneId);
+    const fileInput = document.getElementById(fileInputId);
+    
+    if (preview && dropZone && fileInput) {
+        // Clear file input
+        fileInput.value = '';
+        
+        // Show drop zone and hide preview
+        preview.style.display = 'none';
+        dropZone.style.display = 'flex';
+        
+        // Reset data
+        if (type === 'rid') {
+            ridData = null;
+            allSurveyIds = [];
+            surveyLoiValid = {};
+            surveyLoiInputsDiv.innerHTML = '';
+            showLoiGroup();
+        } else {
+            metricsData = null;
+        }
+        
+        updateProcessBtnState();
+    }
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Update mode slider logic to show/hide RID drop zone
+modeSlider.addEventListener('change', function() {
+    const ridDropZone = document.getElementById('rid-drop-zone');
+    const ridPreview = document.getElementById('rid-file-preview');
+    const loiContainer = document.getElementById('survey-loi-container');
+    const speederGroup = document.getElementById('speeder-group');
+    const highLoiGroup = document.getElementById('high-loi-group');
+    
+    // Find the Current session checks subgroup by looking for the parent .form-subgroup of speeder-group
+    const currentSessionSubgroup = speederGroup ? speederGroup.closest('.form-subgroup') : null;
+    const currentSessionHeader = document.getElementById('current-session-header');
+    
+    if (isPidOnlyMode()) {
+        ridFileInput.removeAttribute('required');
+        ridFileInput.disabled = true;
+        if (ridDropZone) ridDropZone.style.display = 'none';
+        if (ridPreview) ridPreview.style.display = 'none';
+        ridFileInput.value = '';
+        loiContainer.style.display = 'none';
+        // Clear survey LOI inputs
+        surveyLoiInputsDiv.innerHTML = '';
+        allSurveyIds = [];
+        surveyLoiValid = {};
+        // Hide the entire Current session checks subgroup
+        if (currentSessionSubgroup) {
+            currentSessionSubgroup.style.display = 'none';
+        }
+        if (currentSessionHeader) {
+            currentSessionHeader.style.display = 'none';
+        }
+    } else {
+        ridFileInput.setAttribute('required', 'required');
+        ridFileInput.disabled = false;
+        if (ridDropZone) ridDropZone.style.display = 'flex';
+        // Show the entire Current session checks subgroup
+        if (currentSessionSubgroup) {
+            currentSessionSubgroup.style.display = '';
+        }
+        if (currentSessionHeader) {
+            currentSessionHeader.style.display = '';
+        }
+    }
+    showLoiGroup();
+    updateProcessBtnState();
+});
+
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
   console.log('DOM loaded, initializing...'); // Debug log
   
   // Initialize mode
   modeSlider.checked = false;  // Default to RID+PID mode
-  surveyLoiContainer.style.display = 'none';
+  
+  // Set LOI mode slider to checked (Average LOI mode by default)
+  if (loiModeSlider) {
+    loiModeSlider.checked = true;
+  }
+  
+  // Always show survey LOI container and initialize with default Average LOI input
+  surveyLoiContainer.style.display = 'block';
+  renderLoiInputs({}); // Initialize with empty survey data
   
   // Restore form state
   restoreFormState();
@@ -633,6 +929,9 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Update process button state
   updateProcessBtnState();
+  
+  // Initialize drag and drop
+  initializeDragAndDrop();
   
   console.log('Initialization complete'); // Debug log
 });
