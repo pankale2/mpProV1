@@ -309,8 +309,9 @@ body.dark-mode .info-icon {
     border: 1px solid #cd25f1;
     border-radius: 4px; /* Further reduced from 6px */
     padding: 8px 12px; /* Further reduced from 12px 15px */
-    min-width: 320px; /* Further reduced from 380px */
-    max-width: 650px; /* Further reduced from 780px */
+    min-width: 320px; /* Keep minimum width for small screens */
+    width: 50vw; /* Use 50% of viewport width */
+    max-width: 50vw; /* Ensure it doesn't exceed 50% */
     font-size: 0.65rem; /* Further reduced from 0.7rem */
     box-shadow: 0 2px 8px rgba(34,34,59,0.08); /* Further reduced shadow */
     text-align: left;
@@ -430,7 +431,12 @@ body.dark-mode div[style*="border-right: 1px solid #e0e0e0"] {
 }
 
 @media (max-width: 600px) {
-    .info-popup { font-size: 0.9rem; }
+    .info-popup { 
+        font-size: 0.9rem; 
+        width: 95vw; /* Use most of screen width on very small screens */
+        max-width: 95vw;
+        min-width: 280px; /* Smaller minimum for mobile */
+    }
 }
 #date-mode-group .switch {
   width: 54px;

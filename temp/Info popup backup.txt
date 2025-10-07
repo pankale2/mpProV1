@@ -1,0 +1,84 @@
+          <div style="flex: 1; display: flex; justify-content: flex-end; align-items: center; position: relative;">
+            <a href="#" class="info-icon title-info-icon" id="info-icon" tabindex="0" aria-label="Show observation logic info">i</a>
+            <div class="info-popup" id="info-popup">
+              <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
+              <strong style="font-weight:600;">RID+PID Processor - Quick Guide</strong>
+              <ul style="margin-top:4px; margin-bottom:0; padding-left:12px; font-weight: normal;">
+                <li style="margin-top:4px;">
+                  <b>What This Tool Does:</b> Analyzes respondent behavior by combining RID lookup data with historical PID metrics to identify potentially problematic participants across 6 different quality checks.
+                </li>
+                <li style="margin-top:6px;">
+                  <b>🔄 Typical Workflow (Recommended):</b>
+                  <ol style="margin: 3px 0 0 16px; padding-left:0;">
+                    <li><b>Paste reported RIDs:</b> to get them appeneded with commas, for input on SF RID Lookup</li>
+                    <li><b>Upload RID File:</b> Drag your CSV file recieved in email into the RID upload zone</li>
+                    <li><b>Copy PIDs:</b> Click on the PID boxes on top right to copy them for SSRS input</li>
+                    <li><b>Get PID Metrics:</b> Run the <a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">SSRS report</a> with your copied PIDs</li>
+                    <li><b>Upload PID File:</b> Drag the Excel file downloaded from SSRS into the PID upload zone</li>
+                    <li><b>Enter LOI Values:</b> Add survey LOI information from Marketplace</li>
+                    <li><b>Customize Checks:</b> Update any thresolds/variables applied for checks</li>
+                    <li><b>Process:</b> Click the process button to generate your comprehensive Excel report</li>
+                  </ol>
+                </li>
+                <li style="margin-top:6px;">
+                  <b>📋 RID Processing Features:</b>
+                  <ul>
+                    <li><b>Smart Input:</b> Paste up to 6000 RIDs in the left box - they're automatically formatted with commas in the right box</li>                    
+                    <li><b>Click to Copy:</b> Click the comma-separated output to select all text for easy pasting on SF RID Lookup</li>
+                    <li><b>Line Counter:</b> Real-time count shows exactly how many RIDs you've entered</li>
+                  </ul>
+                </li>
+                <li style="margin-top:6px;">
+                  <b>📦 Smart PID Extraction:</b>
+                  <ul>
+                    <li><b>Automatic Display:</b> Unique PIDs are extracted from your RID file and shown in clickable boxes</li>
+                    <li><b>SSRS Ready:</b> PIDs are formatted with semicolons for direct SSRS report input</li>
+                    <li><b>Batch Support:</b> Large PID lists (>2000) are automatically split for better performance</li>
+                    <li><b>Click to Select:</b> Click any PID box to select all text for easy copying</li>
+                  </ul>
+                </li>
+                <li style="margin-top:6px;">
+                  <b>📁 Enhanced File Upload:</b>
+                  <ul>
+                    <li><b>Drag & Drop:</b> Simply drag files into the upload zones with instant validation</li>
+                    <li><b>Smart Previews:</b> See file statistics, record counts, and survey IDs before processing</li>                    
+                  </ul>
+                </li>
+                <li style="margin-top:6px;">
+                  <b>⚙️ Survey LOI Modes:</b>
+                  <ul>
+                    <li><b>Average LOI (Default):</b> Enter one value for all surveys - perfect for single-survey projects</li>
+                    <li><b>Survey-Specific:</b> Individual LOI values with direct Marketplace links for multi-survey analysis</li>                    
+                  </ul>
+                </li>
+                <li style="margin-top:6px;"><b>🔍 Quality Checks (Applied in Priority Order):</b>
+                  <ol style="margin: 3px 0 0 12px; padding-left:0;">
+                    <li><b>Low Conversion Rate:</b> Poor survey conversion history
+                    <li><b>Speeder:</b> Completing survey too quickly (reported RID/session)</li>
+                    <li><b>High LOI/Distracted:</b> Taking excessive time (reported RID/session)</li>
+                    <li><b>New User/Bot:</b> New user, only one survey, bot suspect (if most ids are from single source)</li>
+                    <li><b>High Security Terms:</b> Excessive security terminations
+                    <li><b>High Reversal Rate:</b> Too many reversals
+                  </ol>
+                  <p style="margin-top:3px;"><b>Priority Logic:</b> Later checks override earlier ones • Clean participants: <code style="color: #006400; font-weight:600;">No Flags</code></p>
+                </li>
+                <li style="margin-top:6px;"><b>📊 Excel Report (6 Comprehensive Sheets):</b>
+                  <ul>
+                    <li><b>Combined Data:</b> Complete dataset (RID+PID) with Excel formulas</li>
+                    <li><b>Summary Counts:</b> Statistical overview with visual data bars and count tables</li>
+                    <li><b>Priority & Multi-Flag Analysis:</b> Supplier breakdowns showing quality issues</li>
+                    <li><b>Time Series Analysis:</b> Quality trends and participation patterns over time</li>
+                    <li><b>Deny List Draft:</b> Details necessary for deny-list creation, along with supportive flag information</li>
+                  </ul>
+                </li>
+                <li style="margin-top:6px;"><b>✨ User Experience:</b>
+                  <ul>
+                    <li><b>Hovering on Process button shows exactly what's missing with helpful tooltips</li>
+                    <li><b>Dark Mode:</b> Toggle themes (preference remembered across sessions)</li>                    
+                    <li><b>Auto-Save:</b> All settings preserved in your browser</li>
+                  </ul>
+                </li>
+              </ul>
+              <p style="text-align: right; margin-top:8px;"><b>Questions?</b> Contact the <a href="https://cint.enterprise.slack.com/archives/C03C085KCBY" target="_blank">T&S team</a> via Slack.</p>
+            </div>
+          </div>
