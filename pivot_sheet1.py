@@ -267,18 +267,18 @@ def write_general_count_table(counts_ws, df_out, column_name, table_title, start
     
     col_letter = col_letters.get(column_name, 'A')
     
-    # Create count data using formulas
+    # Create count data using formulas - UPDATED to exclude blank RID rows
     count_data = {}
     total_records = len(df_out)
     
     for value in value_counts.index:
         if value == '(blank)':
-            # Count blank/empty values
-            count_data[value] = f'=COUNTBLANK(\'Combined Data\'!{col_letter}:{col_letter})+COUNTIF(\'Combined Data\'!{col_letter}:{col_letter},"")'
+            # Count blank/empty values in target column, but only where RID is not blank
+            count_data[value] = f'=COUNTIFS(\'Combined Data\'!{col_letter}:{col_letter},"",\'Combined Data\'!A:A,"<>")+COUNTIFS(\'Combined Data\'!{col_letter}:{col_letter}," ",\'Combined Data\'!A:A,"<>")'
         else:
-            # Escape quotes in the value for formula
+            # Escape quotes in the value for formula and add RID non-blank condition
             escaped_value = str(value).replace('"', '""')
-            count_data[value] = f'=COUNTIF(\'Combined Data\'!{col_letter}:{col_letter},"{escaped_value}")'
+            count_data[value] = f'=COUNTIFS(\'Combined Data\'!{col_letter}:{col_letter},"{escaped_value}",\'Combined Data\'!A:A,"<>")'
     
     # Write the table
     return write_count_table(counts_ws, count_data, table_title, start_row, workbook, total_records)
@@ -319,12 +319,12 @@ def write_tenure_group_count_table(counts_ws, table_title, start_row, workbook, 
     
     data_start_row = current_row
     
-    # Write data rows with dynamic COUNTIF formulas
+    # Write data rows with dynamic COUNTIFS formulas - UPDATED to exclude blank RID rows
     for category in tenure_categories:
         counts_ws.write(current_row, 0, category, fmt_data)
         
-        # Column B: COUNTIF formula referencing current row in column A
-        count_formula = f"=COUNTIF('Combined Data'!BS:BS,A{current_row + 1})"
+        # Column B: COUNTIFS formula referencing current row in column A and excluding blank RIDs
+        count_formula = f"=COUNTIFS('Combined Data'!BS:BS,A{current_row + 1},'Combined Data'!A:A,\"<>\")"
         counts_ws.write_formula(current_row, 1, count_formula, fmt_count)
         
         # Column C: Percentage formula
@@ -335,13 +335,12 @@ def write_tenure_group_count_table(counts_ws, table_title, start_row, workbook, 
         
         current_row += 1
     
-    # Write Total row
+    # Write Total row - UPDATED to count only rows with non-blank RIDs
     total_row = current_row
     counts_ws.write(total_row, 0, "Total", fmt_total)
     
-    # Sum the count formulas from Column B
-    count_range = f"B{data_start_row + 1}:B{current_row}"
-    counts_ws.write_formula(total_row, 1, f"=SUM({count_range})", fmt_count)
+    # Count total non-blank RID rows instead of summing individual categories
+    counts_ws.write_formula(total_row, 1, "=COUNTIF('Combined Data'!A:A,\"<>\")", fmt_count)
     
     # Total percentage is always 100%
     counts_ws.write_formula(total_row, 2, "=1", fmt_percent)
@@ -393,7 +392,7 @@ def write_count_table(counts_ws, count_data, table_title, start_row, workbook, t
         
         current_row += 1
     
-    # Write Total row
+    # Write Total row - UPDATED to count only non-blank RID rows
     total_row = current_row
     counts_ws.write(total_row, 0, "Total", fmt_total)
     
@@ -401,9 +400,8 @@ def write_count_table(counts_ws, count_data, table_title, start_row, workbook, t
         # Special case for MultiFlag table - reference PrioFlag Total
         counts_ws.write_formula(total_row, 1, f"=B{prioflag_total_row}", fmt_count)
     else:
-        # Normal case - sum own rows
-        count_range = f"B{data_start_row + 1}:B{current_row}"
-        counts_ws.write_formula(total_row, 1, f"=SUM({count_range})", fmt_count)
+        # UPDATED: Count total non-blank RID rows instead of summing categories
+        counts_ws.write_formula(total_row, 1, "=COUNTIF('Combined Data'!A:A,\"<>\")", fmt_count)
     
     # Use formula instead of hardcoded value for percentage
     counts_ws.write_formula(total_row, 2, "=1", fmt_percent)

@@ -43,82 +43,99 @@
             <a href="#" class="info-icon title-info-icon" id="info-icon" tabindex="0" aria-label="Show observation logic info">i</a>
             <div class="info-popup" id="info-popup">
               <button class="close-btn" id="info-popup-close" aria-label="Close">&times;</button>                                
-              <strong style="font-weight:600;">How This Tool Works</strong>
+              <strong style="font-weight:600;">RID+PID Processor - Quick Guide</strong>
               <ul style="margin-top:4px; margin-bottom:0; padding-left:12px; font-weight: normal;">
                 <li style="margin-top:4px;">
-                  <b>Required Files:</b> This tool requires both RID Lookup CSV and PID Metrics Excel files to perform comprehensive analysis with all 6 observation checks.
+                  <b>What This Tool Does:</b> Analyzes survey respondent behavior by combining RID lookup data with historical PID metrics to identify potentially problematic participants across 6 different quality checks.
                 </li>
                 <li style="margin-top:4px;">
-                  <b>LOI Input Modes:</b>
+                  <b>Easy File Upload:</b>
                   <ul>
-                    <li><b>Survey-specific LOI:</b> Individual LOI values for each survey ID with direct Marketplace links</li>
-                    <li><b>Average LOI:</b> Single LOI value applied to all surveys with aggregated Marketplace link to top survey</li>
+                    <li><b>Drag & Drop:</b> Simply drag your CSV (RID) and Excel (PID) files into the upload zones, or click to browse</li>
+                    <li><b>File Validation:</b> Automatic file type checking with helpful error messages</li>
+                    <li><b>Smart PIDs:</b> When you upload a RID file, unique PIDs are automatically extracted and displayed in copy-ready format for SSRS input</li>
+                    <li><b>File Previews:</b> See file statistics (size, record counts, survey IDs) before processing</li>
                   </ul>
                 </li>
                 <li style="margin-top:4px;">
-                  <b>Observation Checks &amp; Priority Order:</b>
+                  <b>Survey LOI Input (Length of Interview):</b>
+                  <ul>
+                    <li><b>Average LOI Mode:</b> Enter one LOI value that applies to all surveys (default mode)</li>
+                    <li><b>Survey-Specific Mode:</b> Enter individual LOI values for each survey ID with direct Marketplace links</li>
+                    <li><b>Smart Validation:</b> LOI values must be between 3-100 minutes with real-time validation</li>
+                  </ul>
+                </li>
+                <li style="margin-top:4px;">
+                  <b>Quality Checks Applied (in priority order):</b>
                   <ol style="margin: 3px 0 0 12px; padding-left:0;">
-                    <li><b>Low Conversion Rate:</b> system_conversion_rate &lt; threshold% <span style="color:#cd25f1;">&amp; total_surveys_entered &gt; threshold</span></li>
-                    <li><b>New User, First survey, Bot suspect:</b> first_entry_date = last_entry_date (date-only comparison)</li>
-                    <li><b>High Security Terms Rate:</b> security_terms_rate &gt; threshold% <span style="color:#cd25f1;">&amp; total_surveys_entered &gt; threshold</span></li>
-                    <li><b>Low LOI, Speeder:</b> session_loi &lt; Survey_LOI/divider</li>
-                    <li><b>High LOI, Distracted:</b> session_loi &gt; Survey_LOI×multiplier</li>
-                    <li><b>High Reversal Rate:</b> net_recs_rate &gt; threshold% <span style="color:#cd25f1;">&amp; total_surveys_entered &gt; threshold</span></li>                                              
+                    <li><b>Low Conversion Rate:</b> Identifies PIDs with poor survey completion rates <span style="color:#cd25f1;">(requires survey history)</span></li>
+                    <li><b>New User/Bot Suspect:</b> Flags participants who entered and exited on the same day</li>
+                    <li><b>High Security Terms:</b> Detects excessive security violation rates <span style="color:#cd25f1;">(requires survey history)</span></li>
+                    <li><b>Speeder:</b> Identifies participants completing surveys too quickly</li>
+                    <li><b>High LOI/Distracted:</b> Flags participants taking excessive time to complete</li>
+                    <li><b>High Reversal Rate:</b> Detects participants with too many recommendation reversals <span style="color:#cd25f1;">(requires survey history)</span></li>
                   </ol>
-                  <p style="margin-top:3px;"><b>Priority Logic:</b> Later checks override earlier ones. If no checks match: <code style="color: #006400; font-weight:600;">No Flags</code></p>
-                  <p style="margin-top:3px;"><b>Survey Count Condition:</b> Three checks (Low Conversion, High Security, High Reversal) only apply when total_surveys_entered exceeds the threshold (default: 5)</p>
+                  <p style="margin-top:3px;"><b>Smart Logic:</b> Later checks override earlier ones. Clean participants show as: <code style="color: #006400; font-weight:600;">No Flags</code></p>
                 </li>
-                <li style="margin-top:8px;"><b>Excel Output Report (6 sheets):</b>
+                <li style="margin-top:8px;"><b>Advanced Customization:</b>
                   <ul>
-                    <li><b>Combined Data:</b> Merged dataset with all calculated columns and Excel formulas for dynamic calculations</li>
-                    <li><b>Counts:</b> Summary count tables with TRANSPOSE formulas referencing pivot data:
-                      <ul>
-                        <li>PrioFlag Counts (from priority-based observations)</li>
-                        <li>MultiFlag Counts (from multi-flag analysis)</li>
-                        <li>Individual counts for surveyid, response status, country, project manager, buyer BU</li>
-                      </ul>
-                    </li>
-                    <li><b>Flags Pivot (Priority):</b> Supplier × single priority observation with conditional formatting</li>
-                    <li><b>Flags Pivot (Multi):</b> Supplier × all applicable flags showing complete flag analysis</li>
-                    <li><b>Pivot EntryDate × Flags:</b> Time-series analysis of observation types by date</li>
-                    <li><b>Pivot EntryDate × Supplier:</b> Time-series analysis of entries by supplier and date</li>
-                    <li><b>DenyList_Draft:</b> Filtered flagged records formatted for deny-list creation</li>
+                    <li><b>Session Checks:</b> Adjust Speeder (÷3) and High LOI (×3) multipliers for current session analysis</li>
+                    <li><b>Historical Checks:</b> Set thresholds for conversion (10%), security terms (30%), and reversal rates (15%)</li>
+                    <li><b>Experience Threshold:</b> Minimum surveys (default: 5) required before applying historical checks</li>
+                    <li><b>Auto-Save:</b> All your settings are automatically saved in your browser</li>
                   </ul>
                 </li>
-                <li style="margin-top:8px;"><b>Advanced Options:</b>
+                <li style="margin-top:8px;"><b>Comprehensive Excel Report (6 sheets):</b>
                   <ul>
-                    <li><b>RID checks (current session):</b> Configure Speeder and High LOI multipliers/dividers</li>
-                    <li><b>PID checks (historical data):</b> Set thresholds for conversion rate, security terms, and reversal rate</li>
-                    <li><b>Survey count threshold:</b> Minimum surveys required for historical checks (4-20, default: 5)</li>
-                    <li>All settings are automatically saved in your browser for convenience</li>
+                    <li><b>Combined Data:</b> Complete merged dataset with dynamic Excel formulas for real-time calculations</li>
+                    <li><b>Summary Counts:</b> Statistical overview with count tables and data bars for quick insights</li>
+                    <li><b>Priority Analysis:</b> Supplier breakdown showing the primary quality issue for each participant</li>
+                    <li><b>Multi-Flag Analysis:</b> Complete flag matrix showing all quality issues per supplier</li>
+                    <li><b>Time Series - Flags:</b> Quality trends over time by observation type</li>
+                    <li><b>Time Series - Suppliers:</b> Participation patterns over time by supplier</li>
+                    <li><b>Deny List Draft:</b> Filtered results ready for deny-list creation with proper formatting</li>
                   </ul>
                 </li>
-                <li style="margin-top:8px;"><b>Validation &amp; Features:</b>
+                <li style="margin-top:8px;"><b>User Experience Features:</b>
                   <ul>
-                    <li><b>File validation:</b> CSV for RID, XLSX for PID Metrics - upload original files without modifications</li>
-                    <li><b>LOI validation:</b> Must be between 3-100, required in RID+PID mode</li>
-                    <li><b>Real-time validation:</b> Button tooltips show missing requirements, process button enables when ready</li>
-                    <li><b>Dark mode support:</b> Toggle between light and dark themes (preference saved)</li>
-                    <li><b>Excel formulas:</b> Most calculations use Excel formulas for transparency and performance</li>
+                    <li><b>Real-Time Validation:</b> Process button shows exactly what's missing with helpful tooltips</li>
+                    <li><b>Dark Mode:</b> Toggle between light and dark themes (preference remembered)</li>
+                    <li><b>Smart Error Handling:</b> Detailed error messages with downloadable error reports when issues occur</li>
+                    <li><b>Excel Intelligence:</b> Formulas instead of static calculations for transparency and flexibility</li>
+                    <li><b>Mobile Friendly:</b> Responsive design that works on different screen sizes</li>
                   </ul>
                 </li>
               </ul>
-              <p style="text-align: right; margin-top:8px;">For queries/concerns, reach out to <a href="https://cint.enterprise.slack.com/archives/D0327778C3S" target="_blank">T&amp;S team</a>.</p>
+              <p style="text-align: right; margin-top:8px;"><b>Questions?</b> Contact the <a href="https://cint.enterprise.slack.com/archives/D0327778C3S" target="_blank">T&S team</a> via Slack.</p>
             </div>
           </div>
         </div>
 
         <!-- Full-width section divider -->
-        <div class="section-divider" style="margin: 10px 0; width: 100%;"></div>
+        <div class="section-divider" style="margin: 6px 0; width: 100%;"></div>
 
         <!-- Two equal vertical areas with vertical divider -->
         <div style="display: flex; gap: 20px; width: 100%;">
           <!-- Left Area: RID-related controls -->
           <div style="flex: 1; min-width: 0; border-right: 1px solid #e0e0e0; padding-right: 20px;">
-            <!-- RID File Upload -->
-            <!-- <h4 style="margin-top: 0; margin-bottom: 10px; font-size: 1.1rem; font-weight: 600; text-decoration: underline;">
-               File:
-            </h4> -->
+            
+            <!-- RID Processing Container -->
+            <div id="rid-processing-container" class="rid-processing-container">
+              <div class="rid-textbox-row">
+                <!-- First textbox column -->
+                <div class="rid-textbox-column">
+                  <label class="rid-textbox-label">Paste RIDs (reported by client) here:</label>
+                  <textarea id="raw-rids-input" class="raw-rids-input" placeholder="Paste RIDs here, one per line, max 6000 lines accepted..." value=""></textarea>
+                  <div class="rid-line-count" id="raw-rids-count">Lines: 0/6000</div>
+                </div>
+                <!-- Second textbox column -->
+                <div class="rid-textbox-column">
+                  <label class="rid-textbox-label">Comma ',' separated RIDs (for SF Lookup input):</label>
+                  <textarea id="comma-rids-output" class="comma-rids-output" readonly title="Click to select all" placeholder="Auto-filled with RIDs and comma..." value=""></textarea>
+                  <div class="rid-line-count" id="comma-rids-count">Lines: 0</div>
+                </div>
+              </div>
+            </div>
             
             <!-- RID Drag and Drop Zone -->
             <div class="drag-drop-zone" id="rid-drop-zone" data-file-type="csv">
@@ -181,17 +198,18 @@
             
             <!-- LOI Multipliers (from RID checks)-->                       
             <h4 style="margin-top: 20px; margin-bottom: 10px; font-size: 1rem; font-weight: 600; text-decoration: underline;">RID (single session) based checks:</h4>
-            <div class="form-group" id="speeder-group">
-                <label for="speeder_multiplier">
-                  <span>Speeder: flag if session_loi <span style="color:#cd25f1;">lesser than (Survey LOI divided by: </span><input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required><span style="color:#cd25f1;">)</span>
-                </label>
+            <div class="form-subgroup">
+              <div class="form-group" id="speeder-group">
+                  <label for="speeder_multiplier">
+                    <span>Speeder: flag if session_loi <span style="color:#cd25f1;">lesser than (Survey LOI divided by: </span><input type="number" name="speeder_multiplier" id="speeder_multiplier" value="3" min="1" max="10" step="0.1" required><span style="color:#cd25f1;">)</span>
+                  </label>
+              </div>
+              <div class="form-group" id="high-loi-group">
+                  <label for="high_loi_multiplier">
+                    <span>Higher LOI: flag if session_loi <span style="color:#cd25f1;">greater than (Survey LOI multiplied by: </span><input type="number" name="high_loi_multiplier" id="high_loi_multiplier" value="3" min="1" max="10" step="0.1" required><span style="color:#cd25f1;">)</span>
+                  </label>                    
+              </div>
             </div>
-            <div class="form-group" id="high-loi-group">
-                <label for="high_loi_multiplier">
-                  <span>Higher LOI: flag if session_loi <span style="color:#cd25f1;">greater than (Survey LOI multiplied by: </span><input type="number" name="high_loi_multiplier" id="high_loi_multiplier" value="3" min="1" max="10" step="0.1" required><span style="color:#cd25f1;">)</span>
-                </label>                    
-            </div>
-              
 
           </div>
 
@@ -207,7 +225,7 @@
                 <div class="drag-drop-left-section">
                   <div class="drag-drop-icon">📊</div>
                   <div class="drag-drop-text-group">
-                    <div class="drag-drop-text"><small>Upload</small> <strong><a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">PID Matrics</a> </strong><small>file</small></div>
+                    <div class="drag-drop-text"><small>Upload</small> <strong><a href="http://reports.lucidhq.com/Reports/report/Lucid/Marketplace%20Metrics%20by%20PID" target="_blank">PID Metrics</a> </strong><small>file</small></div>
                     <div class="drag-drop-text"><small>Excel, exported from SSRS</small></div>
                   </div>
                 </div>
@@ -261,25 +279,25 @@
         </div>
 
         <!-- Full-width section divider -->
-        <div class="section-divider" style="margin: 10px 0; width: 100%;"></div>
+        <div class="section-divider" style="margin: 6px 0; width: 100%;"></div>
 
         <!-- Bottom button row divided into 3 equal sections -->
-        <div style="display: flex; margin-top: 10px; width: 100%;">
+        <div style="display: flex; margin-top: 6px; width: 100%;">
           <!-- Left section: Dark mode toggle (1/3) -->
           <div style="flex: 1; display: flex; justify-content: flex-start; align-items: center;">
-            <button type="button" id="dark-mode-toggle" style="background:#f4f7fa; color:#2a0b57; border:1px solid #cd25f1; border-radius:18px; padding:6px 18px; font-size:1rem; font-weight:600; cursor:pointer;">
+            <button type="button" id="dark-mode-toggle" style="background:#f4f7fa; color:#2a0b57; border:1px solid #cd25f1; border-radius:15px; padding:4px 12px; font-size:0.85rem; font-weight:600; cursor:pointer;">
               🌙 Dark Mode
             </button>
           </div>
           
           <!-- Middle section: Process button (1/3) -->
           <div style="flex: 1; display: flex; justify-content: center; align-items: center;">
-            <input type="submit" id="process-btn" value="Process Files & Download Report" style="font-size: 1.3rem; padding: 10px 60px; font-weight: bold; letter-spacing: 1px;">
+            <input type="submit" id="process-btn" value="Process Files & Download Report" style="font-size: 1.1rem; padding: 8px 40px; font-weight: bold; letter-spacing: 0.5px;">
           </div>
           
           <!-- Right section: Shutdown button (1/3) -->
           <div style="flex: 1; display: flex; justify-content: flex-end; align-items: center;">
-            <button type="button" id="shutdown-btn" onclick="shutdownApp()" style="background-color: #dc3545; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; display: none;">
+            <button type="button" id="shutdown-btn" onclick="shutdownApp()" style="background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; display: none;">
               Exit Application
             </button>
           </div>
@@ -307,6 +325,8 @@
     
     <!-- External Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="{{ url_for('static', filename='js/file-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/form-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
   </body>
 </html>

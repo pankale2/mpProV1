@@ -2,11 +2,11 @@ body {
     /* Light mode default */
     font-family: 'Inter', 'Segoe UI', Arial, sans-serif;
     margin: 0; 
-    padding: 12px; /* Further reduced from 15px */
+    padding: 8px; /* Further reduced from 12px */
     background-color: #f4f7fa; 
     color: #22223b;
-    line-height: 1.4; /* Further reduced from 1.5 */
-    font-size: 0.85rem; /* Further reduced from 0.9rem */
+    line-height: 1.3; /* Further reduced from 1.4 */
+    font-size: 0.8rem; /* Further reduced from 0.85rem */
 }
 body.dark-mode {
     background-color: #181a20;
@@ -14,24 +14,24 @@ body.dark-mode {
 }
 .container { 
     max-width: 1600px;
-    margin: 3px auto; /* Reduced from 5px auto */
+    margin: 2px auto; /* Reduced from 3px auto */
     background-color: #fff; 
-    padding: 6px 6px; /* Further reduced from 8px 8px */
-    border-radius: 10px; /* Further reduced from 12px */
-    box-shadow: 0 4px 16px rgba(34, 34, 59, 0.07); /* Further reduced shadow */
+    padding: 4px 4px; /* Further reduced from 6px 6px */
+    border-radius: 8px; /* Further reduced from 10px */
+    box-shadow: 0 3px 12px rgba(34, 34, 59, 0.06); /* Further reduced shadow */
 }
 body.dark-mode .container {
     background-color: #23263a;
-    box-shadow: 0 6px 24px rgba(34, 34, 59, 0.18);
+    box-shadow: 0 4px 20px rgba(34, 34, 59, 0.16);
 }
 h1 {
     color: #22223b;
     text-align: left;
-    margin-bottom: 18px; /* Further reduced from 22px */
-    margin-top: 4px; /* Reduced from 5px */
-    font-size: 1.25rem; /* Further reduced from 1.35rem */
+    margin-bottom: 12px; /* Further reduced from 18px */
+    margin-top: 2px; /* Reduced from 4px */
+    font-size: 1.1rem; /* Further reduced from 1.25rem */
     font-weight: 700;
-    letter-spacing: 0.3px; /* Further reduced from 0.4px */
+    letter-spacing: 0.2px; /* Further reduced from 0.3px */
 }
 body.dark-mode h1 {
     color: #e0e0e0;
@@ -39,17 +39,17 @@ body.dark-mode h1 {
 
 /* Make h3 in survey-loi-container more compact and consistent between modes */
 #survey-loi-container h3 {
-  margin-top: 4px;
-  margin-bottom: 10px;
-  font-size: 0.9rem !important; /* Ensure consistent size in both light and dark modes */
-  padding-left: 2px;
+  margin-top: 2px;
+  margin-bottom: 6px; /* Further reduced from 10px */
+  font-size: 0.8rem !important; /* Further reduced from 0.9rem */
+  padding-left: 1px;
   color: #22223b; /* Explicit light mode color */
 }
 
 /* Add dark mode styling for survey LOI container heading */
 body.dark-mode #survey-loi-container h3 {
     color: #e0e0e0 !important;
-    font-size: 0.9rem !important; /* Keep same size as light mode */
+    font-size: 0.8rem !important; /* Keep same size as light mode */
 }
 
 .main-flex-row {
@@ -82,23 +82,23 @@ body.dark-mode .left-section {
 }
 .form-group {
     flex: 1 1 220px;
-    min-width: 150px; /* Further reduced from 160px */
-    margin-bottom: 6px;  /* Further reduced from 8px */
+    min-width: 130px; /* Further reduced from 150px */
+    margin-bottom: 4px;  /* Further reduced from 6px */
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 5px; /* Further reduced from 6px */
+    gap: 4px; /* Further reduced from 5px */
 }
 /* Compact form-group for right-section to reduce label gap */
 .right-section .form-group {
     flex: unset;
     min-width: unset;
-    margin-bottom: 10px; /* Further reduced from 12px */
+    margin-bottom: 6px; /* Further reduced from 10px */
     padding-left: 0;
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 4px; /* Further reduced from 6px */
+    gap: 3px; /* Further reduced from 4px */
 }
 /* Mode slider should maintain original column layout and dimensions */
 #mode-slider-group {
@@ -170,9 +170,9 @@ label {
     margin-bottom: 0;
     font-weight: 600;
     color: #22223b;
-    font-size: 0.85rem; /* Further reduced from 0.9rem */
+    font-size: 0.8rem; /* Further reduced from 0.85rem */
     letter-spacing: 0;
-    min-width: 170px; /* Further reduced from 180px */
+    min-width: 150px; /* Further reduced from 170px */
     flex-shrink: 0;
 }
 body.dark-mode label, body.dark-mode .form-group label {
@@ -181,13 +181,13 @@ body.dark-mode label, body.dark-mode .form-group label {
 input[type="file"], 
 input[type="number"] { 
     flex: 1;
-    min-width: 45px; /* Further reduced from 50px */
-    padding: 4px 6px; /* Further reduced from 5px 7px */
+    min-width: 40px; /* Further reduced from 45px */
+    padding: 3px 5px; /* Further reduced from 4px 6px */
     border: 1px solid #bfc9d1;
-    border-radius: 4px; /* Further reduced from 5px */
+    border-radius: 3px; /* Further reduced from 4px */
     box-sizing: border-box;
     margin-bottom: 0;
-    font-size: 0.85rem; /* Further reduced from 0.9rem */
+    font-size: 0.8rem; /* Further reduced from 0.85rem */
     background: #f8fafc;
     color: #22223b;
     transition: border-color 0.2s;
@@ -209,15 +209,15 @@ input[type="file"] {
 input[type="submit"], button[type="button"] { 
     background-color: #2a0b57;
     color: #fff; 
-    padding: 6px 12px; /* Further reduced from 7px 14px */
+    padding: 5px 10px; /* Further reduced from 6px 12px */
     border: none; 
-    border-radius: 4px; /* Further reduced from 5px */
+    border-radius: 3px; /* Further reduced from 4px */
     cursor: pointer; 
-    font-size: 0.9rem; /* Further reduced from 0.95rem */
+    font-size: 0.85rem; /* Further reduced from 0.9rem */
     font-weight: 600;
     transition: background 0.2s, color 0.2s;
-    margin-top: 6px; /* Further reduced from 8px */
-    box-shadow: 0 2px 4px rgba(42,11,87,0.07); /* Further reduced shadow */
+    margin-top: 4px; /* Further reduced from 6px */
+    box-shadow: 0 1px 3px rgba(42,11,87,0.06); /* Further reduced shadow */
 }
 body.dark-mode input[type="submit"], body.dark-mode button[type="button"] {
     background-color: #6502f5;
@@ -302,17 +302,17 @@ body.dark-mode .info-icon {
     display: none;
     position: absolute;
     right: 0; /* Changed from left: 25px to right: 0 for right-aligned info icon */
-    top: 30px; /* Adjusted top position */
+    top: 25px; /* Further reduced from 30px */
     z-index: 10;
     background: #fff;
     color: #22223b;
     border: 1px solid #cd25f1;
-    border-radius: 6px;
-    padding: 12px 15px;
-    min-width: 380px;
-    max-width: 780px;
-    font-size: 0.7rem;
-    box-shadow: 0 3px 10px rgba(34,34,59,0.1);
+    border-radius: 4px; /* Further reduced from 6px */
+    padding: 8px 12px; /* Further reduced from 12px 15px */
+    min-width: 320px; /* Further reduced from 380px */
+    max-width: 650px; /* Further reduced from 780px */
+    font-size: 0.65rem; /* Further reduced from 0.7rem */
+    box-shadow: 0 2px 8px rgba(34,34,59,0.08); /* Further reduced shadow */
     text-align: left;
     font-weight: normal;
 }
@@ -447,8 +447,8 @@ body.dark-mode #date-mode-group .slider {
 .switch {
   position: relative;
   display: inline-block;
-  width: 44px; /* Further reduced from 48px */
-  height: 22px; /* Further reduced from 25px */
+  width: 38px; /* Further reduced from 44px */
+  height: 18px; /* Further reduced from 22px */
   vertical-align: middle;
 }
 .switch input {
@@ -473,32 +473,32 @@ body.dark-mode .slider {
 .slider:before {
   position: absolute;
   content: "";
-  height: 16px; /* Further reduced from 19px */
-  width: 16px; /* Further reduced from 19px */
-  left: 3px;
-  bottom: 3px;
+  height: 14px; /* Further reduced from 16px */
+  width: 14px; /* Further reduced from 16px */
+  left: 2px; /* Adjusted for smaller switch */
+  bottom: 2px; /* Adjusted for smaller switch */
   background-color: #fff;
   transition: .3s;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(42,11,87,0.1); /* Further reduced shadow */
+  box-shadow: 0 1px 2px rgba(42,11,87,0.08); /* Further reduced shadow */
 }
 input:checked + .slider {
   background-color: #cd25f1;
 }
 input:checked + .slider:before {
-  transform: translateX(22px); /* Adjusted from 23px for smaller switch */
+  transform: translateX(20px); /* Adjusted for smaller switch */
 }
 input:checked + .slider {
   background-color: #cd25f1;
 }
 input:checked + .slider:before {
-  transform: translateX(22px); /* Adjusted from 23px for smaller switch */
+  transform: translateX(20px); /* Adjusted for smaller switch */
 }
 .form-subgroup {
   border: 1px solid #e0e0e0;
-  border-radius: 5px; /* Further reduced from 6px */
-  padding: 5px; /* Further reduced from 6px */
-  margin-top: 3px;  /* Further reduced from 4px */
+  border-radius: 4px; /* Further reduced from 5px */
+  padding: 3px; /* Further reduced from 5px */
+  margin-top: 2px;  /* Further reduced from 3px */
   background-color: #f8fafc;
 }
 
@@ -509,8 +509,8 @@ body.dark-mode .form-subgroup {
 
 .form-subgroup h4 {
   margin-top: 0;
-  margin-bottom: 3px;  /* Further reduced from 4px */
-  font-size: 0.9rem; /* Further reduced from 0.95rem */
+  margin-bottom: 2px;  /* Further reduced from 3px */
+  font-size: 0.8rem; /* Further reduced from 0.9rem */
   font-weight: 600;
   color: #22223b;
 }
@@ -523,7 +523,7 @@ body.dark-mode .form-subgroup h4 {
 .right-section h4 {
   color: #22223b;
   margin-bottom: 1px; 
-  font-size: 0.9rem; /* Further reduced from 0.95rem */
+  font-size: 0.8rem; /* Further reduced from 0.9rem */
 }
 
 body.dark-mode .right-section h4 {
@@ -533,7 +533,7 @@ body.dark-mode .right-section h4 {
 /* Ensure section dividers span full width */
 .section-divider {
   border-top: 1px solid #e0e0e0;
-  margin: 1px 0;
+  margin: 6px 0; /* Further reduced from 10px */
   width: 100%;
 }
 
@@ -544,9 +544,9 @@ body.dark-mode .section-divider {
 /* Add border and styling to survey-loi-container matching form-subgroup */
 #survey-loi-container {
   border: 1px solid #e0e0e0;
-  border-radius: 5px;
-  padding: 5px;
-  margin-top: 3px;
+  border-radius: 4px; /* Further reduced from 5px */
+  padding: 3px; /* Further reduced from 5px */
+  margin-top: 2px; /* Further reduced from 3px */
   background-color: #f8fafc;
 }
 
@@ -557,61 +557,41 @@ body.dark-mode #survey-loi-container {
 
 /* Make h3 in survey-loi-container more compact and consistent between modes */
 #survey-loi-container h3 {
-  margin-top: 4px;
-  margin-bottom: 10px;
-  font-size: 0.9rem !important; /* Ensure consistent size in both light and dark modes */
-  padding-left: 2px;
+  margin-top: 2px;
+  margin-bottom: 6px; /* Further reduced from 10px */
+  font-size: 0.8rem !important; /* Further reduced from 0.9rem */
+  padding-left: 1px;
   color: #22223b; /* Explicit light mode color */
 }
 
 /* Add dark mode styling for survey LOI container heading */
 body.dark-mode #survey-loi-container h3 {
     color: #e0e0e0 !important;
-    font-size: 0.9rem !important; /* Keep same size as light mode */
+    font-size: 0.8rem !important; /* Keep same size as light mode */
 }
 
 /* Adjust survey-loi-inputs for better spacing */
 #survey-loi-inputs {
-  padding: 0 2px 3px 2px;
+  padding: 0 1px 2px 1px; /* Further reduced padding */
 }
 
 /* Make loi-mode-slider-group more compact */
 #loi-mode-slider-group {
-  margin-bottom: 8px !important;
-  padding-top: 3px;
-}
-
-/* Adjust the info icon positioning for the new header layout */
-.info-icon {
-    display: inline-block;
-    margin-left: 8px;
-    color: #cd25f1;
-    background: #f4f7fa;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    text-align: center;
-    font-weight: normal;
-    font-size: 1.1rem;
-    line-height: 22px;
-    cursor: pointer;
-    border: 1px solid #cd25f1;
-    text-decoration: none;
-    vertical-align: middle;
-    position: relative;
+  margin-bottom: 6px !important; /* Further reduced from 8px */
+  padding-top: 2px; /* Further reduced from 3px */
 }
 
 /* Drag and Drop Zones - Updated for 2-section layout */
 .drag-drop-zone {
     border: 2px dashed #bfc9d1;
-    border-radius: 8px;
-    padding: 10px; /* Reduced from 20px */
+    border-radius: 6px; /* Further reduced from 8px */
+    padding: 6px; /* Further reduced from 10px */
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
     background: #f8fafc;
-    margin-bottom: 5px; /* Reduced from 10px */
-    min-height: 50px; /* Reduced from 80px */
+    margin-bottom: 3px; /* Further reduced from 5px */
+    min-height: 35px; /* Further reduced from 50px */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -654,7 +634,7 @@ body.dark-mode .drag-drop-zone.drag-over {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 12px;
+    gap: 8px; /* Further reduced from 12px */
     flex: 1; /* Equal width */
     text-align: left;
 }
@@ -666,7 +646,7 @@ body.dark-mode .drag-drop-zone.drag-over {
     flex: 1; /* Equal width */
     text-align: center;
     border-left: 1px solid rgba(191, 201, 209, 0.3); /* Subtle divider */
-    padding-left: 12px;
+    padding-left: 8px; /* Further reduced from 12px */
 }
 
 body.dark-mode .drag-drop-right-section {
@@ -674,7 +654,7 @@ body.dark-mode .drag-drop-right-section {
 }
 
 .drag-drop-icon {
-    font-size: 2rem; /* Keep current size as requested */
+    font-size: 1.5rem; /* Further reduced from 2rem */
     opacity: 0.7;
     flex-shrink: 0; /* Don't shrink icon */
 }
@@ -687,9 +667,9 @@ body.dark-mode .drag-drop-right-section {
 }
 
 .drag-drop-text {
-    font-size: 1rem; /* Increased from 0.85rem */
+    font-size: 0.85rem; /* Further reduced from 1rem */
     color: #22223b;
-    line-height: 1.4;
+    line-height: 1.3; /* Further reduced from 1.4 */
 }
 
 .drag-drop-text strong {
@@ -706,9 +686,9 @@ body.dark-mode .drag-drop-text strong {
 }
 
 .drag-drop-instruction {
-    font-size: 1rem; /* Increased from 0.85rem */
+    font-size: 0.85rem; /* Further reduced from 1rem */
     color: #666;
-    line-height: 1.4;
+    line-height: 1.3; /* Further reduced from 1.4 */
     font-style: italic;
 }
 
@@ -720,10 +700,10 @@ body.dark-mode .drag-drop-instruction {
 .file-preview {
     background: #e6f7f9;
     border: 1px solid #b3eaf7;
-    border-radius: 6px;
-    padding: 10px;
-    margin-bottom: 10px;
-    font-size: 0.85rem;
+    border-radius: 4px; /* Further reduced from 6px */
+    padding: 6px; /* Further reduced from 10px */
+    margin-bottom: 6px; /* Further reduced from 10px */
+    font-size: 0.8rem; /* Further reduced from 0.85rem */
 }
 
 body.dark-mode .file-preview {
@@ -734,11 +714,11 @@ body.dark-mode .file-preview {
 .file-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px; /* Further reduced from 10px */
 }
 
 .file-icon {
-    font-size: 1.2rem;
+    font-size: 1rem; /* Further reduced from 1.2rem */
     opacity: 0.8;
 }
 
@@ -758,7 +738,7 @@ body.dark-mode .file-name {
 
 .file-stats {
     color: #666;
-    font-size: 0.8rem;
+    font-size: 0.75rem; /* Further reduced from 0.8rem */
 }
 
 body.dark-mode .file-stats {
@@ -769,11 +749,11 @@ body.dark-mode .file-stats {
     background: none;
     border: none;
     color: #cd25f1;
-    font-size: 1.2rem;
+    font-size: 1rem; /* Further reduced from 1.2rem */
     font-weight: bold;
     cursor: pointer;
-    width: 24px;
-    height: 24px;
+    width: 20px; /* Further reduced from 24px */
+    height: 20px; /* Further reduced from 24px */
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -794,12 +774,12 @@ body.dark-mode .file-stats {
 .title-area {
     background-color: #2a0b57;
     color: #fff;
-    padding: 10px 20px; /* Adjusted to match process button height while accounting for full width */
+    padding: 6px 15px; /* Further reduced from 10px 20px */
     border: none;
-    border-radius: 6px;
-    margin-bottom: 18px;
+    border-radius: 4px; /* Further reduced from 6px */
+    margin-bottom: 12px; /* Further reduced from 18px */
     transition: background 0.2s, color 0.2s;
-    box-shadow: 0 2px 4px rgba(42,11,87,0.07);
+    box-shadow: 0 1px 3px rgba(42,11,87,0.06); /* Further reduced shadow */
 }
 
 body.dark-mode .title-area {
@@ -824,16 +804,16 @@ body.dark-mode .title-area h1 {
 /* Update info icon styling for title area */
 .title-info-icon {
     display: inline-block;
-    margin-left: 8px;
+    margin-left: 6px; /* Further reduced from 8px */
     color: #fff;
     background: rgba(255, 255, 255, 0.1);
     border-radius: 50%;
-    width: 22px;
-    height: 22px;
+    width: 18px; /* Further reduced from 22px */
+    height: 18px; /* Further reduced from 22px */
     text-align: center;
     font-weight: normal;
-    font-size: 1.1rem;
-    line-height: 22px;
+    font-size: 0.9rem; /* Further reduced from 1.1rem */
+    line-height: 18px; /* Adjusted to match new height */
     cursor: pointer;
     border: 1px solid rgba(255, 255, 255, 0.3);
     text-decoration: none;
@@ -883,4 +863,246 @@ body.dark-mode .title-area #mode-slider-group .switch .slider {
 
 body.dark-mode .title-area #mode-slider-group input:checked + .slider {
     background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* PID Boxes Styling - Single line layout with dynamic title width */
+.pid-boxes-container {
+    margin-top: 3px; /* Further reduced from 5px */
+    margin-bottom: 3px; /* Further reduced from 5px */
+}
+
+.pid-box {
+    margin-bottom: 2px; /* Further reduced from 3px */
+}
+
+.pid-box-content {
+    display: flex;
+    align-items: center;
+    background: #e6f7f9; /* Match file preview styling */
+    border: 1px solid #b3eaf7;
+    border-radius: 4px; /* Further reduced from 6px */
+    padding: 3px 6px; /* Further reduced from 4px 8px */
+    font-size: 0.7rem; /* Further reduced from 0.75rem */
+    gap: 6px; /* Further reduced from 8px */
+    min-height: 20px; /* Further reduced from 24px */
+}
+
+body.dark-mode .pid-box-content {
+    background: #233a3a;
+    border-color: #008cba;
+}
+
+.pid-box-title {
+    font-weight: 600;
+    color: #22223b;
+    white-space: nowrap;
+    flex-shrink: 0; /* Don't shrink, but let width be dynamic */
+    font-size: 0.7rem; /* Further reduced from 0.75rem */
+}
+
+body.dark-mode .pid-box-title {
+    color: #e0e0e0;
+}
+
+.pid-box-scroll {
+    flex: 1;
+    overflow-x: auto;
+    white-space: nowrap;
+    font-family: 'Courier New', monospace; /* Monospace for PID readability */
+    color: #555;
+    padding: 1px 4px; /* Further reduced from 2px 6px */
+    background: rgba(255,255,255,0.7);
+    border-radius: 2px; /* Further reduced from 3px */
+    cursor: pointer; /* Indicate clickability for text selection */
+    font-size: 0.65rem; /* Further reduced from 0.7rem */
+    line-height: 1.1; /* Further reduced from 1.2 */
+    position: relative;
+    
+    /* Fade edge indicators for scrollable content */
+    background: linear-gradient(to right, 
+        rgba(255,255,255,0.7) 0%, 
+        rgba(255,255,255,0.7) 10%, 
+        rgba(255,255,255,0.9) 50%, 
+        rgba(255,255,255,0.7) 90%, 
+        rgba(255,255,255,0.5) 100%
+    );
+}
+
+body.dark-mode .pid-box-scroll {
+    color: #b3eaf7;
+    background: linear-gradient(to right, 
+        rgba(0,0,0,0.3) 0%, 
+        rgba(0,0,0,0.3) 10%, 
+        rgba(0,0,0,0.1) 50%, 
+        rgba(0,0,0,0.3) 90%, 
+        rgba(0,0,0,0.5) 100%
+    );
+}
+
+.pid-box-scroll:hover {
+    background: rgba(205, 37, 241, 0.1); /* Subtle highlight on hover */
+    /* Enhanced tooltip styling on hover */
+    position: relative;
+}
+
+body.dark-mode .pid-box-scroll:hover {
+    background: rgba(205, 37, 241, 0.15);
+}
+
+/* Add fade indicator for scrollable content */
+.pid-box-scroll::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 20px;
+    background: linear-gradient(to left, rgba(255,255,255,0.9), transparent);
+    pointer-events: none; /* Don't interfere with clicking */
+    border-radius: 0 3px 3px 0;
+}
+
+body.dark-mode .pid-box-scroll::after {
+    background: linear-gradient(to left, rgba(0,0,0,0.4), transparent);
+}
+
+/* Hide scrollbar on webkit browsers for cleaner look */
+.pid-box-scroll::-webkit-scrollbar {
+    height: 2px;
+}
+
+.pid-box-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pid-box-scroll::-webkit-scrollbar-thumb {
+    background: rgba(205, 37, 241, 0.3);
+    border-radius: 1px;
+}
+
+.pid-box-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(205, 37, 241, 0.5);
+}
+
+/* RID Processing Container Styles */
+.rid-processing-container {
+    margin-bottom: 6px; /* Further reduced from 10px */
+}
+
+.rid-textbox-row {
+    display: flex;
+    gap: 6px; /* Further reduced from 10px */
+    width: 100%;
+}
+
+.rid-textbox-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.rid-textbox-label {
+    font-size: 0.7rem; /* Further reduced from 0.75rem */
+    font-weight: 600;
+    color: #22223b;
+    margin-bottom: 2px; /* Further reduced from 4px */
+    min-width: unset !important;
+}
+
+body.dark-mode .rid-textbox-label {
+    color: #e0e0e0;
+}
+
+/* RID Processing textboxes - Enhanced styling with better UX */
+#raw-rids-input,
+#comma-rids-output {
+    min-height: 70px; /* Doubled from 35px */
+    max-height: 180px; /* Doubled from 90px */
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 0.6rem; /* Reduced from 0.7rem for more compact display */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; /* Consolas first for Windows */
+    resize: vertical;
+    overflow: auto;
+    white-space: nowrap;
+    line-height: 1.1;
+}
+
+/* Input box - interactive appearance */
+#raw-rids-input {
+    background: #e6f7f9 !important;
+    border: 2px solid #b3eaf7 !important; /* Slightly thicker border for interactive feel */
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Subtle shadow for depth */
+}
+
+/* Output box - flat, read-only appearance */
+#comma-rids-output {
+    background: #f0f0f0 !important; /* Grayed-out background */
+    border: 1px solid #d0d0d0 !important; /* Thinner, lighter border */
+    box-shadow: none !important; /* No shadow for flat appearance */
+    color: #555 !important; /* Slightly muted text color */
+    cursor: pointer; /* Still clickable for selection */
+}
+
+body.dark-mode #raw-rids-input {
+    background: #233a3a !important;
+    border-color: #008cba !important;
+    color: #b3eaf7 !important;
+}
+
+body.dark-mode #comma-rids-output {
+    background: #2a2a2a !important; /* Darker grayed background in dark mode */
+    border-color: #555 !important; /* Muted border in dark mode */
+    color: #aaa !important; /* Muted text in dark mode */
+}
+
+#raw-rids-input:focus {
+    border-color: #cd25f1 !important;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(205, 37, 241, 0.2) !important; /* Focus ring */
+}
+
+/* Removed hover effects for comma-rids-output to maintain read-only appearance */
+
+/* Specific placeholder styling with higher specificity */
+#raw-rids-input::placeholder {
+    color: #999 !important;
+    font-style: italic !important;
+    white-space: normal !important;
+    opacity: 1 !important;
+}
+
+#comma-rids-output::placeholder {
+    color: #999 !important;
+    font-style: italic !important;
+    white-space: normal !important;
+    opacity: 1 !important;
+}
+
+body.dark-mode #raw-rids-input::placeholder,
+body.dark-mode #comma-rids-output::placeholder {
+    color: #888 !important;
+}
+
+/* Line count styling - much smaller and right-aligned */
+.rid-line-count {
+    font-size: 0.55rem !important; /* Reduced from 0.65rem */
+    color: #666;
+    margin-top: 1px;
+    text-align: right !important; /* Right-aligned */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; /* Match content font */
+    font-weight: 500; /* Slightly bolder for better readability at small size */
+}
+
+body.dark-mode .rid-line-count {
+    color: #b0b0b0;
+}
+
+.rid-line-count.over-limit {
+    color: #e53935 !important;
+    font-weight: 600 !important;
+}
+
+body.dark-mode .rid-line-count.over-limit {
+    color: #ff6b6b !important;
 }

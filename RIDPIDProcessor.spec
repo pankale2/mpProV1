@@ -12,61 +12,17 @@ a = Analysis(
         'openpyxl.formatting',
         'openpyxl.formatting.rule',
         'xlsxwriter',
-        'xlsxwriter.utility',
         'pandas',
-        'pandas.io.excel',
-        'pandas.io.formats.excel'
+        'pandas.io.excel'
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        # Exclude unused pandas modules
-        'pandas.tests',
-        'pandas.io.clipboard',
-        'pandas.plotting',
-        'pandas.io.sql',
-        'pandas.io.sas',
-        'pandas.io.spss',
-        'pandas.io.stata',
-        'pandas.io.feather',
-        'pandas.io.parquet',
-        'pandas.io.orc',
-        'pandas.io.gbq',
-        
-        # Exclude unused scientific libraries
-        'scipy',
-        'numpy.tests',
-        'matplotlib',
-        'plotly',
-        'bokeh',
-        'seaborn',
-        
-        # Exclude development tools
-        'pytest',
-        'IPython',
-        'jupyter',
-        'notebook',
-        
-        # Exclude unused standard library modules
-        'tkinter',
-        'turtle',
-        'pydoc',
-        'doctest',
-        'xmlrpc',
-        'http.server',
-        'socketserver',
-        'wsgiref',
-        
-        # Exclude unused networking
-        'urllib3.contrib',
-        'requests_oauthlib',
-        'cryptography.hazmat.backends.commoncrypto',
-        'cryptography.hazmat.backends.openssl'
-    ],
+    excludes=[],  # Simplified - no exclusions
     noarchive=False,
-    optimize=2,  # Maximum optimization
+    optimize=0,  # No optimization for simpler debugging
 )
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=None)
 
 exe = EXE(
@@ -78,8 +34,8 @@ exe = EXE(
     name='RIDPIDProcessor',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,  # Strip debugging symbols
-    upx=True,    # Enable UPX compression
+    strip=False,  # Keep symbols for better error messages
+    upx=False,    # Disable UPX compression
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
