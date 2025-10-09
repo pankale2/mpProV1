@@ -90,7 +90,7 @@ def generate_survey_report(
         )
 
         # Debug: Print merged DataFrame shape and columns after merge
-        print("DEBUG: merged_df shape:", merged_df.shape)
+        # print("DEBUG: merged_df shape:", merged_df.shape)
         # print("DEBUG: merged_df columns:", merged_df.columns.tolist())
 
         # Add this check immediately after merge
@@ -102,7 +102,7 @@ def generate_survey_report(
             )
 
         # DEBUG: Check for security terms rate
-        print("DEBUG: merged_df columns after merge:", merged_df.columns.tolist())
+        # print("DEBUG: merged_df columns after merge:", merged_df.columns.tolist())
         # print("DEBUG: sample security terms rate:", merged_df['security terms rate'].head() if 'security terms rate' in merged_df.columns else "not found")
 
         # Remove scaling logic for percentage columns
@@ -312,7 +312,7 @@ def generate_survey_report(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"RID-PID_Report_{timestamp}.xlsx"
         output_path = os.path.join(output_dir, output_filename)
-        print("DEBUG: Writing Combined Data sheet with xlsxwriter...")
+        print("DEBUG: Writing Combined Data sheet...")
         write_combined_data_xlsx(
             output_path,
             merged_df,
@@ -322,7 +322,7 @@ def generate_survey_report(
             negative_recs_rate_threshold=negative_recs_rate_threshold,
             is_pid_only_mode=is_pid_only_mode  # Added parameter
         )
-        print("DEBUG: Combined Data sheet written successfully")
+        # print("DEBUG: Combined Data sheet written successfully")
         return str(output_path)
         
     except ValueError:
@@ -373,7 +373,7 @@ def generate_pid_only_report(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_filename = f"pid_metrics_report_{timestamp}.xlsx"
         output_path = os.path.join(output_dir, output_filename)
-        print("DEBUG: Writing PID Metrics Data sheet with xlsxwriter...")
+        print("DEBUG: Writing PID Metrics Data sheet...")
         write_combined_data_xlsx(
             output_path,
             metrics_df,
@@ -390,3 +390,5 @@ def generate_pid_only_report(
     except Exception as e:
         print(f"DEBUG: PID-only unexpected error: {e}")
         raise ValueError(f"Unexpected error in PID-only processing: {str(e)}")
+
+# No code changes needed. Ensure pandas is installed in your Python environment.

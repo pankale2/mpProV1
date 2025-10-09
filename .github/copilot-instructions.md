@@ -15,11 +15,14 @@ Flask-based survey data processor that analyzes RID lookup (CSV) and PID metrics
 - **`pivot_sheet3.py`**: Creates "Flags Pivot (Multi)" sheet with multi-flag analysis by supplier.
 - **`pivot_sheet4.py`**: Creates "Pivot EntryDate × Flags" time-series analysis.
 - **`pivot_sheet5.py`**: Creates "Pivot EntryDate × Supplier" time-series analysis.
+- **`pivot_sheet51.py`**: Creates "TenureSupplier Pivot" sheet with supplier × tenure groups analysis.
 - **`pivot_sheet6.py`**: Creates "DenyList_Draft" sheet for filtered flagged records.
 - **`run.py`**: Development server that opens the application in a browser and manages session-specific flags.
 - **`templates/index.html`**: Single-page form interface with dynamic UI sections, drag-and-drop file uploads, and LOI mode toggle.
 - **`static/js/app.js`**: Handles frontend logic, including form validation, dynamic UI updates, LOI modes, drag-and-drop functionality, PID boxes display, and AJAX-based communication.
-- **`static/css/main.css`**: Comprehensive styling with dark mode support, PID boxes styling, and responsive design.
+- **`static/js/file-manager.js`**: Manages all file operations, drag-drop zones, PID boxes with label wrapper, RID processing textboxes, and file previews.
+- **`static/js/form-manager.js`**: Handles form state management, LOI input rendering, validation, and dark mode toggling.
+- **`static/css/main.css`**: Comprehensive styling with dark mode support, PID boxes styling with wrapper/label, and responsive design.
 
 ### Processing Modes
 **Default Mode**: RID+PID Mode - Merges RID lookup CSV with PID metrics Excel on `pid` column. All 6 observation checks are applied including session-based checks.
@@ -55,6 +58,7 @@ Six flag types applied in sequence, with later flags overwriting `Observation` c
 - **Flags Pivot (Multi)**: Multi-flag analysis by supplier showing all applicable flags.
 - **Pivot EntryDate × Flags**: Time-series analysis of flags by date.
 - **Pivot EntryDate × Supplier**: Time-series analysis of entries by supplier and date.
+- **TenureSupplier Pivot**: Suppliers × tenure groups analysis with optimized conditional formatting.
 - **DenyList_Draft**: Filtered flagged records for review with proper formatting.
 
 ### Excel Formula Architecture
@@ -77,10 +81,13 @@ Instead of Python-side calculations, most dynamic columns use Excel formulas:
 
 ### PID Boxes Feature
 - **Automatic Display**: When RID file is uploaded, unique PIDs are extracted and displayed in scrollable boxes above the PID drop zone.
-- **Batch Handling**: Large PID lists (>2000) are split into multiple batches for better performance.
+- **Label & Wrapper Structure**: PIDs are displayed within a `.pid-boxes-wrapper` containing a descriptive label ("PIDs pulled from the uploaded RID sheet:") and the container with PID boxes.
+- **Batch Handling**: Large PID lists (>2000) are split into multiple batches for better performance. First batch always shows descriptive title regardless of total count.
+- **Auto-Scroll Behavior**: PID boxes automatically scroll to the right on load (50ms delay) to show the last PIDs, improving SSRS copy workflow.
 - **Click-to-Select**: Users can click on PID boxes to select all text for copying to SSRS.
-- **Dynamic Visibility**: PID boxes are hidden when PID file is uploaded and shown again when PID file is removed.
+- **Dynamic Visibility**: PID boxes (including label wrapper) are hidden when PID file is uploaded and shown again when PID file is removed.
 - **SSRS Integration**: PIDs are formatted with semicolon separation for direct SSRS input.
+- **Consistent Styling**: Matches file preview styling with fade animations and dark mode support.
 
 ### LOI Mode Functionality
 - **Survey-specific Mode**: Shows individual inputs for each survey ID with marketplace links and RID counts.
@@ -180,8 +187,10 @@ Consistent pattern across all pivot sheets:
 ### CSS Architecture
 - **Color Scheme**: Primary (#2a0b57), Secondary (#cd25f1), Accent (#6502f5).
 - **Dark Mode Variables**: Consistent color mapping for light/dark themes.
-- **Component Classes**: Modular CSS for drag-drop zones, PID boxes, file previews.
+- **Component Classes**: Modular CSS for drag-drop zones, PID boxes (wrapper, label, container), file previews.
+- **PID Boxes Structure**: `.pid-boxes-wrapper` contains `.pid-boxes-label` and `.pid-boxes-container`, all with animation support.
 - **Responsive Design**: Flexible layouts that maintain functionality across screen sizes.
+- **Code Hygiene**: Empty CSS rulesets are removed to maintain clean, error-free stylesheets.
 
 ### JavaScript Architecture
 - **Global State Management**: Central variables for ridData, metricsData, surveyLoiValid.
@@ -216,11 +225,16 @@ Test both processing modes with various threshold combinations and LOI modes. Te
 - Dark mode CSS inheritance and specificity issues.
 
 ## Recent Architecture Changes
-- **PID Boxes Feature**: Added automatic PID extraction and display with batch handling.
+- **PID Boxes Enhancement**: Added label wrapper structure (`.pid-boxes-wrapper` → `.pid-boxes-label` + `.pid-boxes-container`) for better UI organization and consistent animations.
+- **Auto-Scroll Feature**: PID boxes auto-scroll to right on load (50ms delay) to show last PIDs first, respecting user's manual scroll after initial display.
+- **First Batch Title**: When PIDs exceed 2000, first batch maintains descriptive title "PIDs list (for SSRS input, ';' separated):" while subsequent batches show range-based titles.
+- **TenureSupplier Pivot Sheet**: New `pivot_sheet51.py` creates supplier × tenure groups analysis with optimized conditional formatting (6 calls instead of inefficient 8+).
+- **Conditional Formatting Optimization**: Standardized efficient formatting patterns across all pivot sheets with range-based applications.
 - **Enhanced UI**: Title area redesign, improved drag-drop zones, comprehensive dark mode.
 - **Formula Architecture**: Complete migration to Excel formulas for dynamic calculations.
 - **Column Mapping**: Comprehensive 72-column mapping with proper formatting.
 - **Error Handling**: Enhanced error messages and downloadable error files.
 - **Configuration System**: Config dictionaries for debugging and user feedback control.
+- **CSS Code Quality**: Removed empty rulesets for cleaner, error-free stylesheets.
 
 ## When I request any changes, please do not make changes directly to the script. First confirm your understanding, any queries/confusion, provide the plan for approval.

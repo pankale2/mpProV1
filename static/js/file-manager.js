@@ -128,12 +128,20 @@ window.FileManager = (function() {
     function showRidProcessing() {
         if (ridProcessingContainer) {
             ridProcessingContainer.style.display = 'block';
+            ridProcessingContainer.classList.remove('fade-slide-out');
+            ridProcessingContainer.classList.add('fade-slide-in');
         }
     }
 
     function hideRidProcessing() {
         if (ridProcessingContainer) {
-            ridProcessingContainer.style.display = 'none';
+            ridProcessingContainer.classList.remove('fade-slide-in');
+            ridProcessingContainer.classList.add('fade-slide-out');
+            setTimeout(() => {
+                if (ridProcessingContainer.classList.contains('fade-slide-out')) {
+                    ridProcessingContainer.style.display = 'none';
+                }
+            }, 300);
         }
     }
 
@@ -216,9 +224,24 @@ window.FileManager = (function() {
     }
 
     function createPidContainer() {
+        // Create wrapper to hold both label and container
+        const wrapper = document.createElement('div');
+        wrapper.className = 'pid-boxes-wrapper';
+        
+        // Create label
+        const label = document.createElement('label');
+        label.className = 'pid-boxes-label';
+        label.textContent = 'PIDs pulled from uploaded RID sheet, ready for SSRS input, \';\' separated:';
+        
+        // Create container
         const container = document.createElement('div');
         container.className = 'pid-boxes-container';
-        return container;
+        
+        // Append label and container to wrapper
+        wrapper.appendChild(label);
+        wrapper.appendChild(container);
+        
+        return { wrapper, container };
     }
 
     function createPidBoxElement(title, pids) {
@@ -230,7 +253,7 @@ window.FileManager = (function() {
         pidBox.innerHTML = `
             <div class="pid-box-content">
                 <span class="pid-box-title">${title}</span>
-                <div class="pid-box-scroll" onclick="selectAllText(this)" title="Click to Select all">${pidsString}</div>
+                <div class="pid-box-scroll" onclick="selectAllText(this)" title="Click to select all">${pidsString}</div>
             </div>
         `;
         
@@ -238,56 +261,81 @@ window.FileManager = (function() {
     }
 
     function displayPidBoxes(allPids) {
-        // Remove any existing PID boxes
         removePidBoxes();
         
         const batchSize = 2000;
         const pidDropZone = document.getElementById('pid-drop-zone');
         if (!pidDropZone) return;
         
-        const container = createPidContainer();
+        const { wrapper, container } = createPidContainer();
         
         if (allPids.length <= batchSize) {
-            // Single box
-            const pidBox = createPidBoxElement("PIDs list (for SSRS input, ';' separated):", allPids);
+            const pidBox = createPidBoxElement("PIDs:", allPids);
             container.appendChild(pidBox);
         } else {
-            // Multiple boxes for batches
             const totalBatches = Math.ceil(allPids.length / batchSize);
             
             for (let i = 0; i < totalBatches; i++) {
                 const start = i * batchSize + 1;
                 const end = Math.min((i + 1) * batchSize, allPids.length);
                 const batchPids = allPids.slice(i * batchSize, end);
-                const title = `PIDs ${start}-${end}:`;
+                
+                // Use descriptive title for first batch, range title for others
+                const title = (i === 0) 
+                    ? `PIDs ${start}-${end}:`
+                    : `PIDs ${start}-${end}:`;
                 
                 const pidBox = createPidBoxElement(title, batchPids);
                 container.appendChild(pidBox);
             }
         }
         
-        // Insert container ABOVE the drop zone
-        pidDropZone.parentNode.insertBefore(container, pidDropZone);
+        pidDropZone.parentNode.insertBefore(wrapper, pidDropZone);
+        
+        // Animate in wrapper (which contains both label and boxes)
+        wrapper.classList.add('fade-slide-in');
+        
+        // Auto-scroll all PID boxes to the right after DOM rendering
+        setTimeout(() => {
+            const pidScrollBoxes = container.querySelectorAll('.pid-box-scroll');
+            pidScrollBoxes.forEach(box => {
+                box.scrollLeft = box.scrollWidth;
+            });
+        }, 50);
     }
 
     function removePidBoxes() {
-        const existingContainer = document.querySelector('.pid-boxes-container');
-        if (existingContainer) {
-            existingContainer.remove();
+        const existingWrapper = document.querySelector('.pid-boxes-wrapper');
+        if (existingWrapper) {
+            existingWrapper.classList.remove('fade-slide-in');
+            existingWrapper.classList.add('fade-slide-out');
+            setTimeout(() => {
+                if (existingWrapper.parentNode) {
+                    existingWrapper.remove();
+                }
+            }, 300);
         }
     }
 
     function hidePidBoxes() {
-        const existingContainer = document.querySelector('.pid-boxes-container');
-        if (existingContainer) {
-            existingContainer.style.display = 'none';
+        const existingWrapper = document.querySelector('.pid-boxes-wrapper');
+        if (existingWrapper) {
+            existingWrapper.classList.remove('fade-slide-in');
+            existingWrapper.classList.add('fade-slide-out');
+            setTimeout(() => {
+                if (existingWrapper.classList.contains('fade-slide-out')) {
+                    existingWrapper.style.display = 'none';
+                }
+            }, 300);
         }
     }
 
     function showPidBoxes() {
-        const existingContainer = document.querySelector('.pid-boxes-container');
-        if (existingContainer) {
-            existingContainer.style.display = 'block';
+        const existingWrapper = document.querySelector('.pid-boxes-wrapper');
+        if (existingWrapper) {
+            existingWrapper.style.display = 'block';
+            existingWrapper.classList.remove('fade-slide-out');
+            existingWrapper.classList.add('fade-slide-in');
         }
     }
 
@@ -557,9 +605,18 @@ window.FileManager = (function() {
         const dropZone = document.getElementById(dropZoneId);
         
         if (preview && dropZone) {
-            // Hide drop zone and show preview
-            dropZone.style.display = 'none';
-            preview.style.display = 'block';
+            // Animate out drop zone
+            dropZone.classList.remove('fade-slide-in');
+            dropZone.classList.add('fade-slide-out');
+            
+            setTimeout(() => {
+                dropZone.style.display = 'none';
+                preview.style.display = 'block';
+                
+                // Animate in preview
+                preview.classList.remove('fade-slide-out');
+                preview.classList.add('fade-slide-in');
+            }, 300);
             
             // Update preview content
             const fileName = preview.querySelector('.file-name');
@@ -571,17 +628,13 @@ window.FileManager = (function() {
             
             if (fileStats) {
                 const sizeText = formatFileSize(file.size);
-                
-                // Ensure we don't show negative or invalid counts
                 const validTotalRecords = Math.max(0, totalRecords || 0);
                 const validUniqueCount = Math.max(0, uniqueCount || 0);
                 const validPidCount = Math.max(0, pidCount || 0);
                 
                 if (type === 'rid') {
-                    // RID file format: "File size • RID count • PID count • Survey ID count"
-                    fileStats.innerHTML = `${sizeText} • ${validTotalRecords.toLocaleString()} RIDs • ${validPidCount.toLocaleString()} PIDs • ${validUniqueCount.toLocaleString()} Survey IDs`;
+                    fileStats.innerHTML = `${sizeText} • ${validTotalRecords.toLocaleString()} RIDs • ${validPidCount.toLocaleString()} Unique PIDs • ${validUniqueCount.toLocaleString()} Survey IDs`;
                 } else {
-                    // PID file format: "File size • PID count"
                     fileStats.innerHTML = `${sizeText} • ${validTotalRecords.toLocaleString()} PIDs`;
                 }
             }
@@ -606,23 +659,29 @@ window.FileManager = (function() {
         const fileInput = document.getElementById(fileInputId);
         
         if (preview && dropZone && fileInput) {
-            // Clear file input
             fileInput.value = '';
             
-            // Show drop zone and hide preview
-            preview.style.display = 'none';
-            dropZone.style.display = 'flex';
+            // Animate out preview
+            preview.classList.remove('fade-slide-in');
+            preview.classList.add('fade-slide-out');
             
-            // Reset data
+            setTimeout(() => {
+                preview.style.display = 'none';
+                dropZone.style.display = 'flex';
+                
+                // Animate in drop zone
+                dropZone.classList.remove('fade-slide-out');
+                dropZone.classList.add('fade-slide-in');
+            }, 300);
+            
             if (type === 'rid') {
                 ridData = null;
                 window.FormManager.resetRidData();
-                removePidBoxes(); // Remove PID boxes when RID file removed
-                showRidProcessing(); // Show RID processing area when RID file removed
+                removePidBoxes();
+                showRidProcessing();
                 window.FormManager.showLoiGroup();
             } else {
                 metricsData = null;
-                // Show PID boxes when PID file is removed
                 showPidBoxes();
             }
             

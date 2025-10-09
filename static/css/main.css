@@ -871,12 +871,28 @@ body.dark-mode .title-area #mode-slider-group input:checked + .slider {
     background-color: rgba(255, 255, 255, 0.4);
 }
 
-/* PID Boxes Styling - Single line layout with dynamic title width */
-.pid-boxes-container {
-    margin-top: 3px; /* Further reduced from 5px */
-    margin-bottom: 3px; /* Further reduced from 5px */
+/* PID Boxes Wrapper - contains label and container */
+.pid-boxes-wrapper {
+    margin-top: 3px;
+    margin-bottom: 3px;
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
 }
 
+/* PID Boxes Label - matches RID textbox label styling */
+.pid-boxes-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #22223b;
+    margin-bottom: 2px;
+    display: block;
+    min-width: unset !important;
+}
+
+body.dark-mode .pid-boxes-label {
+    color: #e0e0e0;
+}
+
+/* PID Boxes Styling - Single line layout with dynamic title width */
 .pid-box {
     margin-bottom: 2px; /* Further reduced from 3px */
 }
@@ -914,7 +930,7 @@ body.dark-mode .pid-box-title {
     flex: 1;
     overflow-x: auto;
     white-space: nowrap;
-    font-family: 'Courier New', monospace; /* Monospace for PID readability */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important; /* Updated to match RID textboxes */
     color: #555;
     padding: 1px 4px; /* Further reduced from 2px 6px */
     background: rgba(255,255,255,0.7);
@@ -1068,7 +1084,16 @@ body.dark-mode #comma-rids-output {
     box-shadow: 0 0 0 2px rgba(205, 37, 241, 0.2) !important; /* Focus ring */
 }
 
-/* Removed hover effects for comma-rids-output to maintain read-only appearance */
+/* Disable focus border for comma-rids-output */
+#comma-rids-output:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border-color: #d0d0d0 !important; /* Keep same border as non-focused state */
+}
+
+body.dark-mode #comma-rids-output:focus {
+    border-color: #555 !important; /* Keep same border as non-focused state in dark mode */
+}
 
 /* Specific placeholder styling with higher specificity */
 #raw-rids-input::placeholder {
@@ -1111,4 +1136,56 @@ body.dark-mode .rid-line-count {
 
 body.dark-mode .rid-line-count.over-limit {
     color: #ff6b6b !important;
+}
+
+/* Animation utility classes */
+.fade-slide-in {
+    animation: fadeSlideIn 0.3s ease-in-out forwards;
+}
+
+.fade-slide-out {
+    animation: fadeSlideOut 0.3s ease-in-out forwards;
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeSlideOut {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+}
+
+/* Add transitions to animated elements */
+.drag-drop-zone {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.file-preview {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.pid-boxes-container {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+.rid-processing-container {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+}
+
+#survey-loi-inputs {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
 }

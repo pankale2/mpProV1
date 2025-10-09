@@ -1,6 +1,7 @@
 # excel_generators.py - Excel file creation, formatting, and pivot generation
 import pandas as pd
 import re
+import pivot_sheet51
 from xlsxwriter.utility import xl_col_to_name
 
 # Comment out unused pandas features
@@ -567,6 +568,7 @@ def write_combined_data_xlsx(
         import pivot_sheet3
         import pivot_sheet4
         import pivot_sheet5
+        import pivot_sheet51
         import pivot_sheet6
         if config is None:
             config = {
@@ -578,7 +580,9 @@ def write_combined_data_xlsx(
                 'user_feedback': True,
                 'debug': False
             }
-        
+
+        print("DEBUG: Combined Data sheet written successfully")
+
         if config.get('user_feedback', True):
             print("Creating pivot tables and analysis sheets...")
         
@@ -588,6 +592,5 @@ def write_combined_data_xlsx(
         pivot_sheet3.write_multiflag_pivot(workbook, df_out, config)
         pivot_sheet4.write_entrydateflags_pivot(workbook, df_out, config)
         pivot_sheet5.write_entrydatesuppliers_pivot(workbook, df_out, config)
-        pivot_sheet6.write_denylist_draft(workbook, df_out, config)
-        # Explicitly call sheet reordering
-        # pivot_sheets.reorder_pivot_sheets(workbook, config)
+        pivot_sheet51.write_tenure_supplier_pivot(workbook, df_out, config)
+        pivot_sheet6.write_denylist_draft(workbook, df_out, config)    

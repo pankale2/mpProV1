@@ -286,11 +286,11 @@ def write_prioflag_pivot_summary(workbook, pivot_ws, suppliers, supplier_percent
     total_row = other_row + 1
     pivot_ws.write(total_row, 0, "Total", workbook.add_format({'bold': True, 'align': 'right', 'border': 1}))
     for col in range(1, len(headers)):
-        # Sum all supplier rows in second table
-        col_letter = xl_col_to_name(col)
+        # Instead of SUM, reference the main table's Total row for each column
+        main_table_total_cell = f"{xl_col_to_name(col)}{first_table_total_row}"
         pivot_ws.write_formula(
             total_row, col,
-            f"=SUM({col_letter}{summary_start_row+1}:{col_letter}{other_row})",
+            f"={main_table_total_cell}",
             workbook.add_format({'bold': True, 'bg_color': [
                 None, '#DCE6F1', '#D8E4BC', '#EBF1DE', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#F2DCDB', '#E6B8B7'
             ][col], 'border': 1})
