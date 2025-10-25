@@ -66,6 +66,7 @@ Instead of Python-side calculations, most dynamic columns use Excel formulas:
 - **Flag Columns**: Use IF/AND formulas referencing threshold columns with explicit column letter mapping
 - **PrioFlag**: Nested IF statements determining priority observation
 - **Tenure**: DATEDIF formula calculating days since first entry
+  - NOTE (updated): Tenure now compares first_entry_date to the per-row entrydate_split (session date) instead of TODAY(), i.e. =DATEDIF(first_entry_date, entrydate_split, "D").
 - **Flag_Count**: COUNTIF formula counting TRUE values in flag columns
 - **Tenure_Group**: IF statements categorizing tenure into groups
 - **entrydate_split**: LEFT/FIND formula extracting date portion from datetime
@@ -160,7 +161,7 @@ Consistent pattern across all pivot sheets:
 ### Counts Sheet Architecture
 - **PrioFlag Counts**: TRANSPOSE formulas referencing PrioFlag Pivot sheet.
 - **MultiFlag Counts**: TRANSPOSE formulas referencing MultiFlag Pivot sheet.
-- **General Counts**: COUNTIF formulas for various data columns with background colors and data bars.
+- **General Counts**: COUNTIF formulas for totals were updated to exclude the header row by subtracting 1 from full-column COUNTIF totals (e.g. =COUNTIF('Combined Data'!A:A,"<>") - 1) to avoid the +1 header issue.
 - **Consistent Formatting**: All tables use borders, background colors matching source pivot sheets, and blue data bars.
 
 ### Error Handling Strategy
@@ -236,5 +237,7 @@ Test both processing modes with various threshold combinations and LOI modes. Te
 - **Error Handling**: Enhanced error messages and downloadable error files.
 - **Configuration System**: Config dictionaries for debugging and user feedback control.
 - **CSS Code Quality**: Removed empty rulesets for cleaner, error-free stylesheets.
-
-## When I request any changes, please do not make changes directly to the script. First confirm your understanding, any queries/confusion, provide the plan for approval.
+- Added: COUNTIF totals now subtract header ( -1 ) to fix +1 totals.
+- Added: DenyList_Draft includes RID column (first RID via XLOOKUP) and related formatting.
+- Added: RID right-box output lowercased and line-break preserving with per-line commas.
+- Added: Tenure formula switched to use entrydate_split instead of TODAY().

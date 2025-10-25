@@ -270,7 +270,7 @@ window.FileManager = (function() {
         const { wrapper, container } = createPidContainer();
         
         if (allPids.length <= batchSize) {
-            const pidBox = createPidBoxElement("PIDs:", allPids);
+            const pidBox = createPidBoxElement(`PIDs (${allPids.length}):`, allPids);
             container.appendChild(pidBox);
         } else {
             const totalBatches = Math.ceil(allPids.length / batchSize);
@@ -707,67 +707,63 @@ window.FileManager = (function() {
     }
 
     function initializeRidProcessing() {
-        // Initialize RID processing event listeners
-        if (rawRidsInput) {
-            rawRidsInput.addEventListener('input', processRawRids);
-            
-            // Explicitly clear any inherited values and set correct placeholder
-            rawRidsInput.value = '';
-            rawRidsInput.setAttribute('placeholder', 'Paste RIDs here, one per line, max 6000 lines accepted...');
-            
-            // Prevent any form reset from changing the placeholder
-            rawRidsInput.addEventListener('reset', function(e) {
-                setTimeout(() => {
-                    this.value = '';
-                    this.setAttribute('placeholder', 'Paste RIDs here, one per line, max 6000 lines accepted...');
-                }, 0);
-            });
-        }
+        const rawInput = document.getElementById('raw-rids-input');
+        const commaOutput = document.getElementById('comma-rids-output');
+        const rawCountSpan = document.getElementById('raw-rids-count');
+        const commaCountSpan = document.getElementById('comma-rids-count');
         
-        if (commaRidsOutput) {
-            commaRidsOutput.addEventListener('click', selectRidText);
-            
-            // Explicitly clear any inherited values and set correct placeholder
-            commaRidsOutput.value = '';
-            commaRidsOutput.setAttribute('placeholder', 'Auto-filled with RIDs and comma...');
-            
-            // Make sure it's properly read-only
-            commaRidsOutput.setAttribute('readonly', 'readonly');
-            
-            // Setup scroll tracking for user interaction
-            setupScrollTracking(commaRidsOutput);
-            
-            // Initial scroll to bottom (even when empty)
-            scrollToBottom(commaRidsOutput);
-            
-            // Prevent any form reset from changing the placeholder
-            commaRidsOutput.addEventListener('reset', function(e) {
-                setTimeout(() => {
-                    this.value = '';
-                    this.setAttribute('placeholder', 'Auto-filled with RIDs and comma...');
-                    // Reset scroll state on reset
-                    userHasScrolled = false;
-                    lastContentHeight = 0;
-                    scrollToBottom(this);
-                }, 0);
-            });
-        }
-        
-        // Initialize line counts
+        if (!rawInput || !commaOutput) return;
+
+        // Ensure initial state is clean (fixes first-launch stray value issue)
+        rawInput.value = '';
+        commaOutput.value = '';
+        rawInput.placeholder = rawInput.placeholder || 'Paste RIDs here, one per line, max 6000 lines accepted...';
+        commaOutput.placeholder = commaOutput.placeholder || 'Auto-filled with RIDs and comma...';
+        userHasScrolled = false;
+        lastContentHeight = 0;
         updateLineCounts(0, 0);
         
-        // Ensure RID processing area is visible initially
-        showRidProcessing();
+        // Process RIDs on input
+        rawInput.addEventListener('input', function() {
+            const rawText = this.value;
+            
+            // Split by lines, filter empty, trim, and convert to lowercase
+            const rids = rawText.split(/\r?\n/)
+                .filter(line => line.trim() !== '')
+                .map(line => line.trim().toLowerCase());
+            
+            // Join with commas and newlines for output (one RID per line with comma)
+            let commaText = '';
+            for (let i = 0; i < rids.length; i++) {
+                if (i === rids.length - 1) {
+                    // Last line: no comma
+                    commaText += rids[i];
+                } else {
+                    // All other lines: add comma
+                    commaText += rids[i] + ',\n';
+                }
+            }
+            
+            // Update output
+            commaOutput.value = commaText;
+            
+            // Update counters
+            const lineCount = rids.length;
+            rawCountSpan.textContent = `Lines: ${lineCount}/6000`;
+            commaCountSpan.textContent = `Lines: ${lineCount}`;
+            
+            // Highlight if over limit
+            if (lineCount > 6000) {
+                rawCountSpan.classList.add('over-limit');
+            } else {
+                rawCountSpan.classList.remove('over-limit');
+            }
+        });
         
-        // Additional protection: periodically check for unwanted values
-        setInterval(() => {
-            if (rawRidsInput && rawRidsInput.value === 'Process Files & Download Report') {
-                rawRidsInput.value = '';
-            }
-            if (commaRidsOutput && commaRidsOutput.value === 'Process Files & Download Report') {
-                commaRidsOutput.value = '';
-            }
-        }, 1000);
+        // Click-to-select functionality for comma output
+        commaOutput.addEventListener('click', function() {
+            this.select();
+        });
     }
 
     // Public API

@@ -409,7 +409,7 @@ def write_combined_data_xlsx(
             'No_Enough_Data': '=IF(AND(NOT({first_entry_date}{row}={last_entry_date}{row}), {total_surveys_entered}{row}<={surveys_entered_threshold}{row}), TRUE, FALSE)',
             'New_User_Bot': '=IF({first_entry_date}{row}={last_entry_date}{row}, TRUE, FALSE)',
             'Flag_Count': '=COUNTIF({Speeder}{row}:{High_RR}{row}, TRUE)',
-            'Tenure': '=DATEDIF({first_entry_date}{row}, TODAY(), "d")',
+            'Tenure': '=DATEDIF({first_entry_date}{row}, {entrydate_split}{row}, "D")',  # Updated Tenure formula
             'PrioFlag': (
                 '=IF({High_RR}{row}, "High Reversal Rate", '
                 'IF({High_Security}{row}, "High Security Terms Rate", '
@@ -593,4 +593,4 @@ def write_combined_data_xlsx(
         pivot_sheet4.write_entrydateflags_pivot(workbook, df_out, config)
         pivot_sheet5.write_entrydatesuppliers_pivot(workbook, df_out, config)
         pivot_sheet51.write_tenure_supplier_pivot(workbook, df_out, config)
-        pivot_sheet6.write_denylist_draft(workbook, df_out, config)    
+        pivot_sheet6.write_denylist_draft(workbook, df_out, config)

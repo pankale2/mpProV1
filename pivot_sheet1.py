@@ -335,12 +335,12 @@ def write_tenure_group_count_table(counts_ws, table_title, start_row, workbook, 
         
         current_row += 1
     
-    # Write Total row - UPDATED to count only rows with non-blank RIDs
+    # Write Total row - UPDATED to count only rows with non-blank RIDs and exclude header
     total_row = current_row
     counts_ws.write(total_row, 0, "Total", fmt_total)
     
-    # Count total non-blank RID rows instead of summing individual categories
-    counts_ws.write_formula(total_row, 1, "=COUNTIF('Combined Data'!A:A,\"<>\")", fmt_count)
+    # Count total non-blank RID rows instead of summing individual categories, subtract 1 for header
+    counts_ws.write_formula(total_row, 1, "=COUNTIF('Combined Data'!A:A,\"<>\") - 1", fmt_count)
     
     # Total percentage is always 100%
     counts_ws.write_formula(total_row, 2, "=1", fmt_percent)
@@ -392,7 +392,7 @@ def write_count_table(counts_ws, count_data, table_title, start_row, workbook, t
         
         current_row += 1
     
-    # Write Total row - UPDATED to count only non-blank RID rows
+    # Write Total row - UPDATED to count only non-blank RID rows and exclude header
     total_row = current_row
     counts_ws.write(total_row, 0, "Total", fmt_total)
     
@@ -400,8 +400,8 @@ def write_count_table(counts_ws, count_data, table_title, start_row, workbook, t
         # Special case for MultiFlag table - reference PrioFlag Total
         counts_ws.write_formula(total_row, 1, f"=B{prioflag_total_row}", fmt_count)
     else:
-        # UPDATED: Count total non-blank RID rows instead of summing categories
-        counts_ws.write_formula(total_row, 1, "=COUNTIF('Combined Data'!A:A,\"<>\")", fmt_count)
+        # UPDATED: Count total non-blank RID rows instead of summing categories, subtract 1 for header
+        counts_ws.write_formula(total_row, 1, "=COUNTIF('Combined Data'!A:A,\"<>\") - 1", fmt_count)
     
     # Use formula instead of hardcoded value for percentage
     counts_ws.write_formula(total_row, 2, "=1", fmt_percent)

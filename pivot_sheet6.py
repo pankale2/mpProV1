@@ -12,11 +12,11 @@ def write_denylist_draft(workbook, df_out, config):
         print("[DEBUG] DenyList_Draft: df_out shape:", df_out.shape)
         print("[DEBUG] DenyList_Draft: df_out columns:", df_out.columns.tolist())
 
-    # Define columns for DenyList_Draft
+    # Define columns for DenyList_Draft - RID added at the end
     denylist_columns = [
         "PID", "Supplier ID", "Supplier Name", "Deny Criteria",
         "Speeder", "High_LOI", "Poor_Conv_Rate", "High_Security", "New_User_Bot", "High_RR", "No_Enough_Data",
-        "Flag_Count", "PrioFlag", "Tenure_Group", "entrydate_split"
+        "Flag_Count", "PrioFlag", "Tenure_Group", "entrydate_split", "RID"
     ]
     # Mapping from DenyList_Draft columns to Combined Data columns
     combined_map = {
@@ -33,6 +33,7 @@ def write_denylist_draft(workbook, df_out, config):
         "PrioFlag": "PrioFlag",
         "Tenure_Group": "Tenure_Group",
         "entrydate_split": "entrydate_split"
+        # RID not in map - uses special TEXTJOIN formula
     }
 
     # Get all unique PIDs (no sorting)
@@ -81,7 +82,7 @@ def write_denylist_draft(workbook, df_out, config):
         deny_ws.write(row_idx, 3, 10, fmt_no_bg)
 
         # Data columns (Speeder, High_LOI, etc.)
-        for col_idx, col_name in enumerate(denylist_columns[4:], start=4):
+        for col_idx, col_name in enumerate(denylist_columns[4:-1], start=4):  # Exclude RID (last column)
             combined_col = combined_map[col_name]
             # Find column letter in Combined Data
             if combined_col in df_out.columns:
@@ -92,6 +93,12 @@ def write_denylist_draft(workbook, df_out, config):
                     fmt_data_bg)
             else:
                 deny_ws.write(row_idx, col_idx, "", fmt_data_bg)
+
+        # RID column (last column) - XLOOKUP formula (returns first matching RID)
+        rid_col_idx = len(denylist_columns) - 1
+        deny_ws.write_formula(row_idx, rid_col_idx,
+            f'=XLOOKUP(A{row_idx+1},\'Combined Data\'!R:R,\'Combined Data\'!A:A,"")',
+            fmt_data_bg)
 
     # Autofilter
     deny_ws.autofilter(0, 0, len(unique_pids), len(denylist_columns)-1)
@@ -156,6 +163,8 @@ def write_denylist_draft(workbook, df_out, config):
             deny_ws.set_column(idx, idx, 32, fmt_data_bg)
         elif col_name == "Tenure_Group":
             deny_ws.set_column(idx, idx, 20, fmt_data_bg)
+        elif col_name == "RID":
+            deny_ws.set_column(idx, idx, 37.71, fmt_data_bg)  # Match Combined Data RID column width
         else:
             deny_ws.set_column(idx, idx, 16, fmt_data_bg)
 
